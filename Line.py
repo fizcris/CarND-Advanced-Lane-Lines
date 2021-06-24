@@ -1,5 +1,5 @@
-# Define a class to receive the characteristics of each line detection
 class Line():
+# Class to receive the characteristics of each line detection
     def __init__(self):
         # was the line detected in the last iteration?
         self.detected = False  
