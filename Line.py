@@ -21,3 +21,12 @@ class Line():
         self.allx = None  
         #y values for detected line pixels
         self.ally = None  
+       
+    def updateLine(self,detected,current_fit,allx,ally):
+        if detected:
+            self.diffs = np.subtract(current_fit,self.current_fit)
+            self.current_fit = current_fit
+            self.allx = allx
+            self.ally = ally
+
+
