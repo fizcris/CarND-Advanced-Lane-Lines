@@ -13,9 +13,23 @@ from pprint import pprint
 import pickle
 
 
-# ### [function] Resize Images
+# ### [function] moving_average
 
 # In[2]:
+
+
+def moving_average(x, w):
+    vectLen = len(x)
+    if vectLen > w:
+        sol = np.convolve(x, np.ones(w), 'valid') / w
+    else:
+        sol = sol = np.convolve(x, np.ones(vectLen), 'valid') / vectLen
+    return sol
+
+
+# ### [function] Resize Images
+
+# In[3]:
 
 
 def resizeImage(image,shape=(1280,720)):
@@ -34,7 +48,7 @@ def resizeImage(image,shape=(1280,720)):
 
 # ### [function] Display a list of images
 
-# In[3]:
+# In[4]:
 
 
 def displayListImages(images,titles=[],cols=1,cmap=None, figSize = [12,12], overplot = None):
@@ -73,7 +87,7 @@ def displayListImages(images,titles=[],cols=1,cmap=None, figSize = [12,12], over
 
 # ### [function] Undistort images
 
-# In[4]:
+# In[5]:
 
 
 def undistort_image(img, mtx, dist):
@@ -83,7 +97,7 @@ def undistort_image(img, mtx, dist):
 
 # ### [function] Color enhancement
 
-# In[5]:
+# In[6]:
 
 
 def colorEnhancement(img):
@@ -114,7 +128,7 @@ def colorEnhancement(img):
 
 # ### [function] Grayscale
 
-# In[6]:
+# In[7]:
 
 
 def grayscale(img):
@@ -131,7 +145,7 @@ def grayscale(img):
 
 # ### [function] gaussian_blur
 
-# In[7]:
+# In[8]:
 
 
 def gaussian_blur(img, kernel_size):
@@ -141,7 +155,7 @@ def gaussian_blur(img, kernel_size):
 
 # ### [function] sobel_thresh
 
-# In[8]:
+# In[9]:
 
 
 def sobel_thresh(img, sobel_kernel=3, x_thresh=[1,255], y_thresh=[1,255], mag_thresh=[1,255], dir_thresh=[-np.pi/2, np.pi/2]):
@@ -193,7 +207,7 @@ def sobel_thresh(img, sobel_kernel=3, x_thresh=[1,255], y_thresh=[1,255], mag_th
 
 # ### [function] region_of_interest
 
-# In[9]:
+# In[10]:
 
 
 def region_of_interest(img, vertices):
@@ -224,7 +238,7 @@ def region_of_interest(img, vertices):
 
 # ### [function] draw_lines
 
-# In[10]:
+# In[11]:
 
 
 def draw_lines(img, lines, color=[255, 0, 0], thickness=2):
@@ -242,7 +256,7 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=2):
 
 # ### [function] hough_lines
 
-# In[11]:
+# In[12]:
 
 
 def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap):
@@ -265,7 +279,7 @@ def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap):
 
 # ### [function] Warp images
 
-# In[12]:
+# In[13]:
 
 
 def warp_image(img,conversion = 'warp' ,hwidth = 250 ,offset = -0, height = -450, overplotLines= True ):
@@ -314,7 +328,7 @@ def warp_image(img,conversion = 'warp' ,hwidth = 250 ,offset = -0, height = -450
 
 # ### [Class] Line
 
-# In[13]:
+# In[14]:
 
 
 class Line():
@@ -326,54 +340,67 @@ class Line():
         self.missdetections = 0  
         
         # x values of the last n fits of the line
-        self.recent_xfitted = [] 
+        self.recent_xfitted = np.array([])
         #average x values of the curernt iteration
         self.currentx = 0  
         #average x values of the fitted line over the last n iterations
         self.bestx = 0  
         
         #polynomial coefficients averaged over the last n iterations
-        self.poly_best_fit = np.array([False])    
+        self.poly_best_fit = np.array([])    
         #polynomial coefficients for the most recent fit
-        self.poly_current_fit = np.array([False])  
+        self.poly_current_fit = np.array([]) 
         #difference in fit coefficients between last and new fits
-        self.poly_diffs = np.array([False]) 
+        self.poly_diffs = np.array([])
+        #Last fitted coefs
+        self.recent_poly_fits = np.array([])
         
         #Evaluated polynomial over line X points
-        self.poly_plotx = np.array([False])  
+        self.poly_plotx = np.array([])  
         #Evaluated polynomial over line Y points
-        self.poly_ploty = np.array([False])  
-        
-        #radius of curvature of the line in some units
-        self.radius_of_curvature = None 
-        #distance in meters of vehicle center from the line
-        self.line_base_pos = None 
+        self.poly_ploty = np.array([]) 
 
         #x values for detected line pixels
         self.allx = None  
         #y values for detected line pixels
         self.ally = None 
         
+        #radius of curvature of the line in some units
+        self.radius_of_curvature = None 
+        self.list_radius = np.array([]) 
         
+        # center deviation
+        self.center_deviation = np.array([]) 
         
     def isGoodPolyFit(self):
-        if self.best_fit[0]: #Check if we are not in the first iteration
-            if  np.isclose(self.current_fit,self.best_fit,[1e2,1e2,1e2]):
-                self.best_fit = current_fit
+        if self.poly_best_fit[0]: #Check if we are not in the first iteration
+            if  np.isclose(self.current_fit,self.poly_best_fit,[1e2,1e2,1e2]):
+                self.poly_best_fit = current_fit
     
-    def updateXbase(self, currentx, limit=50):
+    def updateXbase(self, currentx, limit=50, movingAvg = 10 ):
         """Updates the bestx with the given currentx
         if the difference is below a threshold gets appeded
         othewise discarded
         """
-        self.currentx = currentx 
-        if self.bestx > 0:
-            if (abs(self.currentx - self.bestx) < limit):
-                self.bestx = self.currentx
-        else:
-            self.bestx = self.currentx
+         # Not First iteration
+        if self.recent_xfitted.size != 0:
+            # Check for outliers
+            if (abs(currentx - self.bestx) < limit):
+                self.currentx = currentx
+            else:
+                self.currentx = self.bestx
+            
+            # Apply moving average
+            x = np.append(self.recent_xfitted, [self.currentx])
+            self.bestx = moving_average(x, movingAvg)[-1]
         
-        self.recent_xfitted.append(self.bestx)
+        
+        else:
+            # First iteration
+            self.currentx = currentx
+            self.bestx = currentx
+            
+        self.recent_xfitted = np.append(self.recent_xfitted, self.bestx)  
     
     def updatePixels(self,allx,ally):
         """Updates the line pixels positions
@@ -381,26 +408,7 @@ class Line():
         """
         self.allx = allx
         self.ally = ally
-               
-    def updateCoeffsLine(self,detected, current_fit, left_fitx, ploty ):
-        """Updates the line ploynom equation coeficients
-        for the current frame
-        """
-        if detected:
-            self.detected = True
-            self.missdetections = 0  
-            # Calculate diffs
-            if any(self.poly_current_fit): 
-                self.poly_diffs = np.subtract(current_fit,self.poly_current_fit)
-            
-            self.poly_current_fit = current_fit
-            self.poly_plotx = left_fitx
-            self.poly_ploty = ploty
-        else: 
-            self.detected = False
-            self.missdetections += 1  
-            
-            
+        
     def measure_real_curvature(self):
         '''
         Calculates the curvature of polynomial functions in meters.
@@ -411,16 +419,66 @@ class Line():
 
         # Define y-value where we want radius of curvature
         # We'll choose the maximum y-value, corresponding to the bottom of the image
-        ploty = np.linspace(0, 719, num=720)# to cover same y-range as image
-        y_eval = np.max(ploty)
+        y_eval = np.max(self.poly_ploty)
 
         ##### Implement the calculation of R_curve (radius of curvature) #####
-        self.radius_of_curvature = ((1 + (2*self.best_fit[0]*y_eval*ym_per_pix + self.best_fit[1])**2)**1.5) / np.absolute(2*self.best_fit[0])
+        self.radius_of_curvature = ((1 + (2*self.poly_best_fit[0]*y_eval*ym_per_pix + self.poly_best_fit[1])**2)**1.5) / np.absolute(2*self.poly_best_fit[0])
+
+
+    
+               
+    def updateCoeffsLine(self,detected, current_fit, left_fitx, ploty, coefLimits=[1,1,10] ):
+        """Updates the line ploynom equation coeficients
+        for the current removing outliers and applying moving average filters
+        to coeffs
+        """
+        
+        # Not First iteration
+        if self.recent_poly_fits.size != 0:
+            if detected:
+                if any(current_fit): 
+                    self.poly_diffs = np.subtract(current_fit,current_fit)
+                # If outlier
+                if (abs(self.poly_diffs[0]) > coefLimits[0] or abs(self.poly_diffs[1]) > coefLimits[1] or abs(self.poly_diffs[2]) > coefLimits[2] ):
+                    self.detected = False
+                    self.missdetections += 1 
+                
+                else:# If not outlier
+                    self.detected = True
+                    self.missdetections = 0 
+                    # TODO low pass filter coefs
+                    self.poly_best_fit = current_fit
+                    self.recent_poly_fits = np.append(self.recent_poly_fits, self.poly_best_fit)
+                    
+                    self.poly_plotx = left_fitx
+                    self.poly_ploty = ploty
+            else: #Not detected
+                pass
+        
+        # First iteration
+        else:
+            self.poly_best_fit = current_fit
+            self.recent_poly_fits = np.append(self.recent_poly_fits, self.poly_best_fit) 
+            
+            self.poly_plotx = left_fitx
+            self.poly_ploty = ploty
+        
+        self.measure_real_curvature()
+    
+
+    
+    def show(self):
+        '''
+        Prints it current properties
+        '''
+        pprint(vars(self))
+        
+        
 
 
 # ### [function] find_lane_x_points
 
-# In[14]:
+# In[15]:
 
 
 def find_lane_x_points(binary_warped):
@@ -438,15 +496,15 @@ def find_lane_x_points(binary_warped):
 
 # ### [function] find_lane_pixels
 
-# In[15]:
+# In[16]:
 
 
-def find_lane_pixels(binary_warped, leftx_base, rightx_base):
+def find_lane_pixels(binary_warped, leftx_base, rightx_base, showRectangles = True):
     # HYPERPARAMETERS
     # Choose the number of sliding windows
     nwindows = 10
     # Set the width of the windows +/- margin
-    margin = 60
+    margin = 100
     # Set minimum number of pixels found to recenter window
     minpix = 40
     
@@ -489,10 +547,11 @@ def find_lane_pixels(binary_warped, leftx_base, rightx_base):
         win_xright_high = rightx_current  + margin//2
         
         # Draw the windows on the visualization image
-        cv2.rectangle(out_img,(win_xleft_low,win_y_low),
+        if showRectangles:
+            cv2.rectangle(out_img,(win_xleft_low,win_y_low),
         (win_xleft_high,win_y_high),(0,255,0), 2) 
         
-        cv2.rectangle(out_img,(win_xright_low,win_y_low),
+            cv2.rectangle(out_img,(win_xright_low,win_y_low),
         (win_xright_high,win_y_high),(0,255,0), 2) 
         
 
@@ -554,25 +613,23 @@ def find_lane_pixels(binary_warped, leftx_base, rightx_base):
     
     # Colors in the left and right lane regions
     out_img[lefty, leftx] = [255, 0, 0]
-    out_img[righty, rightx] = [255, 255, 0]
+    out_img[righty, rightx] = [0, 0, 255]
 
     return leftx, lefty, rightx, righty, out_img
 
 
 # ### [function] fit_polynomial
 
-# In[16]:
+# In[17]:
 
 
 def fit_polynomial(binary_warped,xPixels,yPixels):
     
-    # Fit a second order polynomial to each using `np.polyfit`
-    coeffs_fit = np.polyfit(yPixels, xPixels, 2)
-
-
     # Generate x and y values for plotting
     ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
     try:
+        # Fit a second order polynomial to each using `np.polyfit`
+        coeffs_fit = np.polyfit(yPixels, xPixels, 2)
         line_fitx = np.polyval(coeffs_fit, ploty)  # evaluate the polynomial
         lineDetected = True
     except TypeError:
@@ -581,6 +638,7 @@ def fit_polynomial(binary_warped,xPixels,yPixels):
         coeffs_fit = [np.array([False])]  
         line_fitx = [np.array([False])]  
         lineDetected = False
+        return coeffs_fit, lineDetected, line_fitx, ploty, out_img
         
 
     # Plots the left and right polynomials on the lane lines
@@ -595,7 +653,7 @@ def fit_polynomial(binary_warped,xPixels,yPixels):
 
 # ### [function] similarCurvature
 
-# In[17]:
+# In[18]:
 
 
 def similarCurvature(lineLeft,lineRight):
@@ -607,7 +665,7 @@ def similarCurvature(lineLeft,lineRight):
 
 # ### [function] rightSeparation
 
-# In[18]:
+# In[19]:
 
 
 def rightSeparation(left_fitx, right_fitx, limitDist = 50):
@@ -625,7 +683,7 @@ def rightSeparation(left_fitx, right_fitx, limitDist = 50):
 
 # ### [function] areParallel
 
-# In[19]:
+# In[20]:
 
 
 def areParallel(lineLeft,lineRight, margin=100):
@@ -638,10 +696,91 @@ def areParallel(lineLeft,lineRight, margin=100):
     return True
 
 
+# ### [function] calculateDeviation
+
+# In[21]:
+
+
+def calculateDeviation(img, lineLeft,lineRight, ):
+    """This function calculates 
+    the deviation of the vehicle from the center of the 
+    image
+    """
+    frameCenter = np.mean([lineLeft.bestx,lineRight.bestx] , dtype=np.int32)
+    imgCenter = img.shape[1]//2
+    
+    dev = frameCenter - imgCenter
+    
+    xm_per_pix = 3.7/450 # meters per pixel in x dimension
+    
+    result = dev*xm_per_pix
+    
+    # Moving average deviation (Not needed as applied to bestx)
+    #x = np.append(lineLeft.center_deviation, [dev])
+    #result = moving_average(x, movingAvg)[-1]
+    #lineLeft.center_deviation = np.append(lineLeft.center_deviation, result)  
+    
+    if dev > 0.01:
+        text = "Vehicle is {:.2f} m -->".format(abs(result))
+    elif dev < -0.01:
+        text = "Vehicle is {:.2f} m <--".format(abs(result))
+    else:
+        text = "Vehicle is spot on center!"
+    
+    
+    return result , text
+
+
+# ### [function]checkRadius
+
+# In[22]:
+
+
+def checkRadius(lineLeft, lineRight, limitStraight=10000,movingAvg = 30 ):
+    
+    if (lineLeft.radius_of_curvature and lineRight.radius_of_curvature ):
+    
+        diff = abs(lineLeft.radius_of_curvature-lineRight.radius_of_curvature)
+
+        mean = np.mean([lineLeft.radius_of_curvature ,lineRight.radius_of_curvature] )
+
+        x = np.append(lineLeft.list_radius, [mean])
+
+        result = moving_average(x, movingAvg)[-1]
+
+        lineLeft.list_radius = np.append(lineLeft.list_radius, result)   
+
+
+        text = "Radius of curvature {:.0f} m".format(abs(result)) 
+        if result > limitStraight:
+            text = "Straight Line".format(abs(result))
+
+    else:
+        diff = 0
+        result = 0
+        text = "No line found"
+
+    return diff, result, text
+
+
 # # Convert notebook into .py script
 
-# In[20]:
+# In[23]:
+
+
+import os
+# Remove existing .py script if exists
+try:
+    os.remove("0. Functions_Clases Pipeline.py")
+except:
+    pass
 
 
 get_ipython().system('jupyter nbconvert --to script "0. Functions_Clases Pipeline.ipynb"')
+
+
+# In[ ]:
+
+
+
 
