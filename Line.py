@@ -1,0 +1,146 @@
+class Line():
+# Class to receive the characteristics of each line detection
+    def __init__(self):
+        # was the line detected in the last iteration?
+        self.detected = False  
+        # missdetections (resets every good detection)
+        self.missdetections = 0  
+        
+        # x values of the last n fits of the line
+        self.recent_xfitted = np.array([])
+        #average x values of the curernt iteration
+        self.currentx = 0  
+        #average x values of the fitted line over the last n iterations
+        self.bestx = 0  
+        
+        #polynomial coefficients averaged over the last n iterations
+        self.poly_best_fit = np.array([])    
+        #polynomial coefficients for the most recent fit
+        self.poly_current_fit = np.array([]) 
+        #difference in fit coefficients between last and new fits
+        self.poly_diffs = np.array([])
+        #All difference in fit coefficients between last and new fits
+        self.all_poly_diffs = np.array([])
+        #Last fitted coefs
+        self.recent_poly_fits = np.array([])
+        
+        #Evaluated polynomial over line X points
+        self.poly_plotx = np.array([])  
+        #Evaluated polynomial over line Y points
+        self.poly_ploty = np.array([]) 
+
+        #x values for detected line pixels
+        self.allx = None  
+        #y values for detected line pixels
+        self.ally = None 
+        
+        #radius of curvature of the line in some units
+        self.radius_of_curvature = None 
+        self.list_radius = np.array([]) 
+        
+        # center deviation
+        self.center_deviation = np.array([]) 
+        
+    def isGoodPolyFit(self):
+        if self.poly_best_fit[0]: #Check if we are not in the first iteration
+            if  np.isclose(self.current_fit,self.poly_best_fit,[1e2,1e2,1e2]):
+                self.poly_best_fit = current_fit
+    
+    def updateXbase(self, currentx, limit=50, movingAvg = 10 ):
+        """Updates the bestx with the given currentx
+        if the difference is below a threshold gets appeded
+        othewise discarded
+        """
+         # Not First iteration
+        if self.recent_xfitted.size != 0:
+            # Check for outliers
+            if (abs(currentx - self.bestx) < limit):
+                self.currentx = currentx
+            else:
+                self.currentx = self.bestx
+            
+            # Apply moving average
+            x = np.append(self.recent_xfitted, [self.currentx])
+            self.bestx = moving_average(x, movingAvg)[-1]
+        
+        
+        else:
+            # First iteration
+            self.currentx = currentx
+            self.bestx = currentx
+            
+        self.recent_xfitted = np.append(self.recent_xfitted, self.bestx)  
+    
+    def updatePixels(self,allx,ally):
+        """Updates the line pixels positions
+        for the current frame
+        """
+        self.allx = allx
+        self.ally = ally
+        
+    def measure_real_curvature(self):
+        '''
+        Calculates the curvature of polynomial functions in meters.
+        '''
+        # Define conversions in x and y from pixels space to meters
+        ym_per_pix = 30/720 # meters per pixel in y dimension
+        xm_per_pix = 3.7/450 # meters per pixel in x dimension
+
+        # Define y-value where we want radius of curvature
+        # We'll choose the maximum y-value, corresponding to the bottom of the image
+        y_eval = np.max(self.poly_ploty)
+
+        ##### Implement the calculation of R_curve (radius of curvature) #####
+        self.radius_of_curvature = ((1 + (2*self.poly_best_fit[0]*y_eval*ym_per_pix + self.poly_best_fit[1])**2)**1.5) / np.absolute(2*self.poly_best_fit[0])
+
+
+    
+               
+    def updateCoeffsLine(self,detected, current_fit, left_fitx, ploty, coefLimits=[1,1,10] ):
+        """Updates the line ploynom equation coeficients
+        for the current removing outliers and applying moving average filters
+        to coeffs
+        """
+        
+        # Not First iteration
+        if self.recent_poly_fits.size != 0:
+            if detected:
+                if any(current_fit): 
+                    self.poly_diffs = np.subtract(self.poly_best_fit,current_fit)
+                    self.all_poly_diffs = np.append(self.all_poly_diffs,self.poly_diffs)
+                # If outlier
+                if (abs(self.poly_diffs[0]) > coefLimits[0] or abs(self.poly_diffs[1]) > coefLimits[1] or abs(self.poly_diffs[2]) > coefLimits[2] ):
+                    self.detected = False
+                    self.missdetections += 1 
+                
+                else:# If not outlier
+                    self.detected = True
+                    self.missdetections = 0 
+                    # TODO low pass filter coefs                    
+                    self.poly_best_fit = current_fit
+                    self.recent_poly_fits = np.append(self.recent_poly_fits, self.poly_best_fit)
+                    
+                    self.poly_plotx = left_fitx
+                    self.poly_ploty = ploty
+            else: #Not detected
+                pass
+        
+        # First iteration
+        else:
+            self.poly_best_fit = current_fit
+            self.recent_poly_fits = np.append(self.recent_poly_fits, self.poly_best_fit) 
+            
+            self.poly_plotx = left_fitx
+            self.poly_ploty = ploty
+        
+        self.measure_real_curvature()
+    
+
+    
+    def show(self):
+        '''
+        Prints it current properties
+        '''
+        pprint(vars(self))
+        
+        
