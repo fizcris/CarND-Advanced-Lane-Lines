@@ -26,6 +26,7 @@ class Line():
         
         #Evaluated polynomial over line X points
         self.poly_plotx = np.array([])  
+        self.poly_plotx_staged = np.array([])  
         #Evaluated polynomial over line Y points
         self.poly_ploty = np.linspace(0, 720-1, 720 )
 
@@ -84,7 +85,7 @@ class Line():
         Calculates the curvature of polynomial functions in meters.
         '''
         # Define conversions in x and y from pixels space to meters
-        ym_per_pix = 30/720 # meters per pixel in y dimension
+        ym_per_pix = 50/720 # meters per pixel in y dimension
         xm_per_pix = 3.7/450 # meters per pixel in x dimension
 
         # Define y-value where we want radius of curvature
