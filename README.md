@@ -178,6 +178,8 @@ The code for this section is contained in the Jupyter notebook `5. Region of int
 A region of interest binary mask filter is applied in an attempt to remove irrelevant features for line detection. A four side polygon is employed and it can be parametrized with the following hyperparameters:
 
 ```
+# HYPERPARAMETERS
+
 ROI_upperWidth = 300  #Width of the upper horizontal straight line in px
 ROI_upperHeight = 300 #Height of the upper horizontal straight line from the bottom of the image in px
 ROI_lowerWidth = 950  #Width of the lower horizontal straight line in px
@@ -261,14 +263,181 @@ The results are generally good and the straights project fairly straight onto th
 
 
 ## Notebook output:    
++ Warped images of ROI pictures
++ Warped images of undistorted frames
 + Binary images with relevant features and perspective transform matrices `pickle_data/warped_images_params.p`.
 
 # 7. Finding lines
 The code for this section is contained in the Jupyter notebook `7. Finding Lines.ipynb`. 
 
+First of all a `Line` class is created (source code in `Line.py`). This line class contains different methods and properties that store everithing related with the detection of the lines. Throughout the documentation all of its methods and properties asociated will be explained.
 
+***
+### `find_lane_x_points(warped_image) `
+To begin with a histogram based fuction is used to fid the starting poitn of the lines. The function basically slits the image in half and uses the bottom half to do the histogram.
+
+```
+histogram = np.sum(binary_warped[binary_warped.shape[0]//2:,:], axis=0)
+```
+
+Then splits the image in two again but in this case in the horizontal axis, and detects the right and left peaks of the histogram wich results in the base X points used by the following functions.
+
+```
+    midpoint = int(histogram.shape[0]//2)
+    leftx_base = np.argmax(histogram[:midpoint])
+    rightx_base = np.argmax(histogram[midpoint:]) + midpoint
+```
+
+The Line method asociated with this function is `lineLeft.updateXbase(leftx_base)` that checks if the value is below a threshold in comparison with the previous x point, if it meets the requirements is then appended to the array `Line.recent_xfitted` from wich a moving average is employed to obtain the x value that gets recorded in the `Line.bestx` propety.
+
+
+```
+    def updateXbase(self, currentx, limit=50, movingAvg = 10 ):
+        """Updates the bestx with the given currentx
+        if the difference is below a threshold gets appeded
+        othewise discarded
+        """
+         # Not First iteration
+        if np.any((self.recent_xfitted != 0)):
+            # Check for outliers
+            if (abs(currentx - self.bestx) < limit):
+                self.currentx = currentx
+            else:
+                self.currentx = self.bestx
+            
+            # Apply moving average
+            x = np.append(self.recent_xfitted, [self.currentx])
+            self.bestx = moving_average(x, movingAvg)[-1]
+        
+        
+        else:
+            # First iteration
+            self.currentx = currentx
+            self.bestx = currentx
+            self.recent_xfitted = currentx
+            
+        self.recent_xfitted = np.append(self.recent_xfitted, self.bestx) 
+```
+
+
+As the moving average is critical throughout the project, here below is its code. It is optimized so it computes the average taking into consideration the number of values contained in the array.
+
+```
+def moving_average(x, w):
+    vectLen = len(x)
+    if vectLen > w:
+        sol = np.convolve(x, np.ones(w), 'valid') / w
+    else:
+        sol = sol = np.convolve(x, np.ones(vectLen), 'valid') / vectLen
+    return sol
+```
+
+Note that this approach has numerous limitations, as it only takes into consideration a quarter of the image to obtain the values so uncentered cameras and tight bends can throw off the whole lane detection mechanism.
+
+***
+### `find_lane_pixels()`
+
+
+This is one of the core functions of the line detection algorithm, it uses a slifing window search approach to find the lane pixels.
+It basically uses the filtered point obtained by `find_lane_x_points(warped_image)` and uses it a start middle poitn at the bottom of the image, then creates a box with the hyperarameters stated below, and climbs up the image detectign the pixels.
+
+```
+# HYPERPARAMETERS
+# Choose the number of sliding windows
+nwindows = 8
+# Set the width of the windows +/- margin
+margin = 120
+# Set minimum number of pixels found to recenter window
+minpix = 40
+```
+
+A tweak was implemented in oreder to help the polynom fitting functions to pass through the intitial x point. Cosntrained optimization methods could be the "right" solution to the problem but they are expensive computationally so a simple solution is presented isntead. The solution proposed is quite simple, the bottom and first sliding gwindow gets filled with fake line pixels so it helps the polynom to pass through it. The results can be seen in the images below.
+
+<table>
+    <tr>
+        <td>
+            <p style="text-align: center;">Sliding window method for lane pixel find</p>
+            <img src="report_resources/slidingW.gif" alt="cal_images" width="500" />
+        </td>
+    </tr>
+</table>
+
+
+***
+### `fit_polynomial()`
+Now comes the tricky part. This funciton attemps to fit a sensible second order polynomial to the detected line pixels. The main funtion is `np.polyfit(yPixels, xPixels, 2)` that computes the optimum second order ploynom that fits all points. As we stated below, the first square contains extra points to force the fitting and avoid missdetections. It is quite crude but it generally gives goods results overall.
+
+
+
+
+
+<table>
+    <tr>
+        <td>
+            <p style="text-align: center;">Sliding window method for lane pixel find</p>
+            <img src="report_resources/poly_sliding.gif" alt="cal_images" width="500" />
+        </td>
+    </tr>
+</table>
+
+
+The `Line` method asociated to the coefficients finding is `Line.updateCoeffsLine(...)`. It is a quite complex method. First detects if there have been previous detections, if not it inicialices the `Line.poly_best_fit` property that contains the current best voeficients in use and `Line.recent_poly_fits` that contains an array with the previously used coefficients. If the line is detected then it gets check in case the coeeficients differ more than the trheshodl `coefLimits=[1,1,10]` so it gets automatically rejected. If it is a good detectuion a moving average filter is then applied to each coefficient and stored as best fit wich will be use for the calculation of the polynom of this iteration then.
+
+Its impelmentation is stated below.
+```
+def updateCoeffsLine(self,detected, current_fit, left_fitx, ploty, coefLimits=[1,1,10], movingAvg=5 ):
+        """Updates the line ploynom equation coeficients
+        for the current removing outliers and applying moving average filters
+        to coeffs
+        """
+        # Not First iteration
+        if  np.any((self.recent_poly_fits != 0)):
+            if detected:
+                self.detected = True
+                if any(current_fit): 
+                    self.poly_diffs = np.subtract(self.poly_best_fit,current_fit)
+                    self.all_poly_diffs = np.vstack((self.all_poly_diffs,self.poly_diffs)) 
+                # If outlier
+                if (abs(self.poly_diffs[0]) > coefLimits[0] or abs(self.poly_diffs[1]) > coefLimits[1] or abs(self.poly_diffs[2]) > coefLimits[2] ):
+                    print("missdetection")
+                    print(self.poly_diffs)
+                    self.detected = False
+                    self.missdetections += 1 
+                
+                else:# If not outlier (Good detection)
+                    self.detected = True
+                    self.missdetections = 0 
+                    # Mean average filter coefs                    
+                    x = np.vstack((self.recent_poly_fits,current_fit)) 
+                    c0 = moving_average(x[:,0], movingAvg)[-1]
+                    c1 = moving_average(x[:,1], movingAvg)[-1]
+                    c2 = moving_average(x[:,2], movingAvg)[-1]
+                    self.poly_best_fit = np.array([c0,c1,c2]) 
+                    self.recent_poly_fits = np.vstack((self.recent_poly_fits,self.poly_best_fit)) 
+                    #print(self.recent_poly_fits)               
+                    self.poly_plotx = np.polyval(self.poly_best_fit, self.poly_ploty)
+                    
+            else: #Not detected
+                self.detected = False
+                self.missdetections += 1 
+        
+        # First iteration
+        else:
+            self.poly_best_fit = current_fit
+            self.recent_poly_fits = np.array([current_fit])
+
+            self.poly_plotx = left_fitx
+            self.poly_ploty = ploty
+        
+        self.measure_real_curvature()
+```
+
+
+***
+### `search_around_poly()`
+In order to speed up detection on videos another method was developed for line pixel detection.
 ## Notebook output:    
-+ Binary images with relevant features `edge_images.p`.
++ Lines isntances for right and left lines of the different processed images `pickle_data/lines_lane.p`.
 
 # 8. Image unwarping
 The code for this section is contained in the Jupyter notebook `8. Unwarp Images.ipynb`. 
@@ -279,6 +448,27 @@ The code for this section is contained in the Jupyter notebook `8. Unwarp Images
 # 9. Curvature radius and vehicle position
 The code for this section is contained in the Jupyter notebook `9. Anotate Images.ipynb`. 
 
+
+
+```
+def measure_real_curvature(self):
+    '''
+    Calculates the curvature of polynomial functions in meters.
+    '''
+    # Define conversions in x and y from pixels space to meters
+    ym_per_pix = 30/720 # meters per pixel in y dimension
+    xm_per_pix = 3.7/700 # meters per pixel in x dimension
+
+    # Define y-value where we want radius of curvature
+    # We'll choose the maximum y-value, corresponding to the bottom of the image
+    y_eval = np.max(self.poly_ploty)
+
+    ##### Implement the calculation of R_curve (radius of curvature) #####
+    self.radius_of_curvature = ((1 + (2*self.poly_best_fit[0]*y_eval*ym_per_pix + self.poly_best_fit[1])**2)**1.5) / np.absolute(2*self.poly_best_fit[0])
+
+
+
+```
 ## Notebook output:    
 + Binary images with relevant features `edge_images.p`.
 
@@ -299,55 +489,74 @@ The code for this section is contained in the Jupyter notebook `10. Videos Pipel
 * Warp the detected lane boundaries back onto the original image.
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
+
+
+```
+def sanityCheck(self,limit):
+    '''
+    Resets the line if it has multiple missdetections.
+    '''
+    if self.missdetections > limit:
+        self.recent_poly_fits = np.array([[0,0,0]]) 
+        self.recent_xfitted = np.array([0])
+        self.missdetections = 0
+        print("Reset by SanityCheck")
+```
+
+
 ## Notebook output:    
 + Binary images with relevant features `edge_images.p`.
 
 # 11. Profiling Video pipeline
 The code for this section is contained in the Jupyter notebook `11. Profiling Videos Pipeline.ipynb`. 
 
+This pipeline is quite slow for porcessing images, a maximum average of 5it/s can be obtained with an average computer. So, this is no adequate for real-time processing, for taht we would need optimized code written in languages as c++ or take advantage of paralezization wich is out of the scope of this project.
 
-## Notebook output:    
-+ Binary images with relevant features `edge_images.p`.
+It is possible to check that the differecnes in execution employing the coeficeint aproximation method rather than the sliding window results in `0.027 s/frame` improvement. It seems not a lot but it reduces between 30-60 secodns the videos processed.  
+
+```
+resizeImage took 0.0 seconds!
+undistorted took 0.023970365524291992 seconds!
+colorEnhancement took 0.009995222091674805 seconds!
+grayscale took 0.0009992122650146484 seconds!
+gaussian_blur took 0.00099945068359375 seconds!
+sobel_thresh took 0.0997314453125 seconds!
+region_of_interest took 0.0 seconds!
+warp_image took 0.0 seconds!
+###
+find_lane_pixels took 0.027791738510131836 seconds!
+Search blindly image 0.012993335723876953 seconds!
+###
+Draw the lane 0.005997180938720703 seconds!
+Radius of curvature 0.001998424530029297 seconds!
+Vehicle position 0.0019989013671875 seconds!
+
+```
+
+```
+resizeImage took 0.0 seconds!
+undistorted took 0.02999281883239746 seconds!
+colorEnhancement took 0.009887933731079102 seconds!
+grayscale took 0.0019969940185546875 seconds!
+gaussian_blur took 0.0009965896606445312 seconds!
+sobel_thresh took 0.10873818397521973 seconds!
+region_of_interest took 0.0 seconds!
+warp_image took 0.0 seconds!
+####
+Search based on coefs 0.01322031021118164 seconds!
+####
+Draw the lane 0.005995988845825195 seconds!
+Radius of curvature 0.001993894577026367 seconds!
+Vehicle position 0.0010023117065429688 seconds!
+```
+
+# Shortcomings asd improvements of the project
++ Search based on screen position that might be affected by camera position and tight bends
++ Possible to include Kalman filter for lane position and shape
++ Not suitable for real time 
+    + Optimize code by paralellizing
+    + Port to c++
 
 ****
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-To help the reviewer examine your work, please save examples of the output from each stage of your pipeline in the folder called `output_images`, and include a description in your writeup for the project of what each image shows.    The video called `project_video.mp4` is the video your pipeline should work well on.  
-
-
-
-
-
-
+# End of the project
