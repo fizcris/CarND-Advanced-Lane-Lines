@@ -326,159 +326,9 @@ def warp_image(img,conversion = 'warp' ,hwidth = 250 ,offset = -0, height = -450
     return warped, M, Minv
 
 
-# ### [Class] Line
-
-# In[14]:
-
-
-class Line():
-# Class to receive the characteristics of each line detection
-    def __init__(self):
-        # was the line detected in the last iteration?
-        self.detected = False  
-        # missdetections (resets every good detection)
-        self.missdetections = 0  
-        
-        # x values of the last n fits of the line
-        self.recent_xfitted = np.array([])
-        #average x values of the curernt iteration
-        self.currentx = 0  
-        #average x values of the fitted line over the last n iterations
-        self.bestx = 0  
-        
-        #polynomial coefficients averaged over the last n iterations
-        self.poly_best_fit = np.array([])    
-        #polynomial coefficients for the most recent fit
-        self.poly_current_fit = np.array([]) 
-        #difference in fit coefficients between last and new fits
-        self.poly_diffs = np.array([])
-        #Last fitted coefs
-        self.recent_poly_fits = np.array([])
-        
-        #Evaluated polynomial over line X points
-        self.poly_plotx = np.array([])  
-        #Evaluated polynomial over line Y points
-        self.poly_ploty = np.array([]) 
-
-        #x values for detected line pixels
-        self.allx = None  
-        #y values for detected line pixels
-        self.ally = None 
-        
-        #radius of curvature of the line in some units
-        self.radius_of_curvature = None 
-        self.list_radius = np.array([]) 
-        
-        # center deviation
-        self.center_deviation = np.array([]) 
-        
-    def isGoodPolyFit(self):
-        if self.poly_best_fit[0]: #Check if we are not in the first iteration
-            if  np.isclose(self.current_fit,self.poly_best_fit,[1e2,1e2,1e2]):
-                self.poly_best_fit = current_fit
-    
-    def updateXbase(self, currentx, limit=50, movingAvg = 10 ):
-        """Updates the bestx with the given currentx
-        if the difference is below a threshold gets appeded
-        othewise discarded
-        """
-         # Not First iteration
-        if self.recent_xfitted.size != 0:
-            # Check for outliers
-            if (abs(currentx - self.bestx) < limit):
-                self.currentx = currentx
-            else:
-                self.currentx = self.bestx
-            
-            # Apply moving average
-            x = np.append(self.recent_xfitted, [self.currentx])
-            self.bestx = moving_average(x, movingAvg)[-1]
-        
-        
-        else:
-            # First iteration
-            self.currentx = currentx
-            self.bestx = currentx
-            
-        self.recent_xfitted = np.append(self.recent_xfitted, self.bestx)  
-    
-    def updatePixels(self,allx,ally):
-        """Updates the line pixels positions
-        for the current frame
-        """
-        self.allx = allx
-        self.ally = ally
-        
-    def measure_real_curvature(self):
-        '''
-        Calculates the curvature of polynomial functions in meters.
-        '''
-        # Define conversions in x and y from pixels space to meters
-        ym_per_pix = 30/720 # meters per pixel in y dimension
-        xm_per_pix = 3.7/450 # meters per pixel in x dimension
-
-        # Define y-value where we want radius of curvature
-        # We'll choose the maximum y-value, corresponding to the bottom of the image
-        y_eval = np.max(self.poly_ploty)
-
-        ##### Implement the calculation of R_curve (radius of curvature) #####
-        self.radius_of_curvature = ((1 + (2*self.poly_best_fit[0]*y_eval*ym_per_pix + self.poly_best_fit[1])**2)**1.5) / np.absolute(2*self.poly_best_fit[0])
-
-
-    
-               
-    def updateCoeffsLine(self,detected, current_fit, left_fitx, ploty, coefLimits=[1,1,10] ):
-        """Updates the line ploynom equation coeficients
-        for the current removing outliers and applying moving average filters
-        to coeffs
-        """
-        
-        # Not First iteration
-        if self.recent_poly_fits.size != 0:
-            if detected:
-                if any(current_fit): 
-                    self.poly_diffs = np.subtract(current_fit,current_fit)
-                # If outlier
-                if (abs(self.poly_diffs[0]) > coefLimits[0] or abs(self.poly_diffs[1]) > coefLimits[1] or abs(self.poly_diffs[2]) > coefLimits[2] ):
-                    self.detected = False
-                    self.missdetections += 1 
-                
-                else:# If not outlier
-                    self.detected = True
-                    self.missdetections = 0 
-                    # TODO low pass filter coefs
-                    self.poly_best_fit = current_fit
-                    self.recent_poly_fits = np.append(self.recent_poly_fits, self.poly_best_fit)
-                    
-                    self.poly_plotx = left_fitx
-                    self.poly_ploty = ploty
-            else: #Not detected
-                pass
-        
-        # First iteration
-        else:
-            self.poly_best_fit = current_fit
-            self.recent_poly_fits = np.append(self.recent_poly_fits, self.poly_best_fit) 
-            
-            self.poly_plotx = left_fitx
-            self.poly_ploty = ploty
-        
-        self.measure_real_curvature()
-    
-
-    
-    def show(self):
-        '''
-        Prints it current properties
-        '''
-        pprint(vars(self))
-        
-        
-
-
 # ### [function] find_lane_x_points
 
-# In[15]:
+# In[14]:
 
 
 def find_lane_x_points(binary_warped):
@@ -496,7 +346,7 @@ def find_lane_x_points(binary_warped):
 
 # ### [function] find_lane_pixels
 
-# In[16]:
+# In[15]:
 
 
 def find_lane_pixels(binary_warped, leftx_base, rightx_base, showRectangles = True):
@@ -620,13 +470,13 @@ def find_lane_pixels(binary_warped, leftx_base, rightx_base, showRectangles = Tr
 
 # ### [function] fit_polynomial
 
-# In[17]:
+# In[16]:
 
 
-def fit_polynomial(binary_warped,xPixels,yPixels):
+def fit_polynomial(binary_warped,xPixels,yPixels, drawPoly = True):
     
     # Generate x and y values for plotting
-    ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
+    ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0])
     try:
         # Fit a second order polynomial to each using `np.polyfit`
         coeffs_fit = np.polyfit(yPixels, xPixels, 2)
@@ -642,13 +492,54 @@ def fit_polynomial(binary_warped,xPixels,yPixels):
         
 
     # Plots the left and right polynomials on the lane lines
-    verts = np.array(list(zip(line_fitx.astype(np.int32),ploty.astype(np.int32))))
-    line_img = cv2.polylines(binary_warped,[verts],False,(0,0,255),thickness=4)
+    if drawPoly:
+        verts = np.array(list(zip(line_fitx.astype(np.int32),ploty.astype(np.int32))))
+        line_img = cv2.polylines(binary_warped,[verts],False,(0,0,255),thickness=4)
     
-    out_img = cv2.addWeighted(line_img, 1, binary_warped, 1, 0) 
+        out_img = cv2.addWeighted(line_img, 1, binary_warped, 1, 0) 
+    else:
+        out_img = binary_warped
 
 
     return  coeffs_fit, lineDetected, line_fitx, ploty, out_img
+
+
+# ### [function]search_around_poly
+
+# In[17]:
+
+
+def search_around_poly(binary_warped, lineLane):
+    # Width of the margin around the previous polynomial to search
+    margin = 100
+        
+    # Grab activated pixels
+    nonzero = binary_warped.nonzero()
+    nonzeroy = np.array(nonzero[0])
+    nonzerox = np.array(nonzero[1])
+    
+    
+    lane_inds = ((nonzerox > (lineLane.poly_best_fit[0]*(nonzeroy**2) + lineLane.poly_best_fit[1]*nonzeroy + 
+                lineLane.poly_best_fit[2] - margin)) & (nonzerox < (lineLane.poly_best_fit[0]*(nonzeroy**2) + 
+                lineLane.poly_best_fit[1]*nonzeroy + lineLane.poly_best_fit[2] + margin)))
+    
+    leftx = nonzerox[lane_inds]
+    lefty = nonzeroy[lane_inds] 
+    
+    lineDetected = True
+    coeffs_fit = np.polyfit(lefty, leftx, 2)
+    line_fitx = np.polyval(coeffs_fit, lineLane.poly_ploty)  # evaluate the polynomial   
+    
+    
+    # Create an output image to draw on and visualize the result
+    if len(binary_warped.shape) < 3:
+        out_img = np.dstack((binary_warped, binary_warped, binary_warped))
+    else:
+        out_img = binary_warped
+        
+    out_img[lefty, leftx] = [255, 0, 0]
+    
+    return leftx,lefty, coeffs_fit, lineDetected, line_fitx, out_img
 
 
 # ### [function] similarCurvature
@@ -672,9 +563,10 @@ def rightSeparation(left_fitx, right_fitx, limitDist = 50):
     """This function evaluates if both lanes 
     are separated rougly the same ammount
     it takes into consideration only the maximum deviation
-    """
+    """       
     dist = right_fitx-left_fitx
     maxDist = dist.max() - dist.min()
+    #print(maxDist)
     if  maxDist < limitDist:
         return True
     else:

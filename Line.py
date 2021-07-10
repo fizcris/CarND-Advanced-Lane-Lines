@@ -124,9 +124,8 @@ class Line():
                     c2 = moving_average(x[:,2], movingAvg)[-1]
                     self.poly_best_fit = np.array([c0,c1,c2]) 
                     self.recent_poly_fits = np.vstack((self.recent_poly_fits,self.poly_best_fit)) 
-                    #print(self.recent_poly_fits)
-                    self.poly_ploty = ploty                  
-                    self.poly_plotx = np.polyval(self.poly_best_fit, ploty)
+                    #print(self.recent_poly_fits)               
+                    self.poly_plotx = np.polyval(self.poly_best_fit, self.poly_ploty)
                     
             else: #Not detected
                 pass
