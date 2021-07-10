@@ -91,8 +91,8 @@ As we can see in the images below, the differences are quite subtle, althought p
 
 ## Notebook output:    
 + Undistorted test images
-+ Pickle file with original test images `test_images.p`.
-+ Pickle file with undistorted test images `undistorted_images.p`.
++ Pickle file with original test images `test_images.p`
++ Pickle file with undistorted test images `undistorted_images.p`
 
 # 3. Color enhancement and filtering
 The code for this section is contained in the Jupyter notebook `3. Color Enhancement.ipynb`. 
@@ -130,7 +130,7 @@ Then the image is converted form HSL to gray scale and a gaussian blur operation
 
 
 ## Notebook output:    
-+ Binary images ready for edge detection `gauss_images.p`.
++ Binary images ready for edge detection `gauss_images.p`
 + HLS filtered images
 + Gauss smoothed grayscale images
 
@@ -148,7 +148,7 @@ The detector function applies four techniques for edge detenction. It calculates
 
 The result is obtained in the following form after applying the indicated thresholds: `result = (sobelx and sobely) or (sobelmag and sobeldir)`. The limits of each thershold are stated in the function as default values.
 
-The results are aceptable, as we can see the lines ar thicker and better defined:
+The results are aceptable, as we can see the lines ar thicker and better defined, although the noise got also increased:
 
 <table>
     <tr>
@@ -167,29 +167,74 @@ The results are aceptable, as we can see the lines ar thicker and better defined
 
 Note that the images were converted to 8bit integers in order to work with a standarized integer format.
 
-Notebook output:    
-+ Binary images with relevant features `edge_images.p`.
-
-
+## Notebook output:    
++ Images with sobel filter applied
++ Binary images with relevant features `edge_images.p`
 
 
 # 5. Region of interest masking
 The code for this section is contained in the Jupyter notebook `5. Region of interest.ipynb`. 
 
+A region of interest binary is applied in an attempt to filter out irrelevant feeatures for line detection. A four side polygon is employed and it can be parametrized with the following hyperparameters:
+
+```
+ROI_upperWidth = 300 #Width of the upper horizontal straight in px
+ROI_upperHeight = 300 #Height of the upper horizontal straight from the bottom of the image in px
+ROI_lowerWidth = 950 #Width of the lower horizontal straight in px
+ROI_lowerHeight = 50  #Height of the lower horizontal straight  from the bottom of the image in px    
+```
+
+<table>
+    <tr>
+        <td>
+            <p style="text-align: center;">From sobel filter</p>
+            <img src="output_images/edge_images_4.jpg" alt="cal_images" width="500" />
+        </td>
+        <td>
+            <p style="text-align: center;">ROI filtered</p>
+            <img src="output_images/imagesROI_1.jpg" alt="und_cal_images" width="500" />
+        </td>
+    </tr>
+</table>
+
+## Notebook output:    
++ ROI filtered images
++ Binary images with relevant features `roi_images.p`
+
 # 6. Perspective tranform (birds eye)
 The code for this section is contained in the Jupyter notebook `6. Perspective transform.ipynb`. 
+
+
+
+
+
+## Notebook output:    
++ Binary images with relevant features `edge_images.p`.
 
 # 7. Finding lines
 The code for this section is contained in the Jupyter notebook `7. Finding Lines.ipynb`. 
 
+
+## Notebook output:    
++ Binary images with relevant features `edge_images.p`.
+
 # 8. Image unwarping
 The code for this section is contained in the Jupyter notebook `8. Unwarp Images.ipynb`. 
+
+## Notebook output:    
++ Binary images with relevant features `edge_images.p`.
 
 # 9. Curvature radius and vehicle position
 The code for this section is contained in the Jupyter notebook `9. Anotate Images.ipynb`. 
 
+## Notebook output:    
++ Binary images with relevant features `edge_images.p`.
+
 # 10. Video pipeline
 The code for this section is contained in the Jupyter notebook `10. Videos Pipeline.ipynb`. 
+
+## Notebook output:    
++ Binary images with relevant features `edge_images.p`.
 
 ## Summary Video Pipeline
 
@@ -202,8 +247,16 @@ The code for this section is contained in the Jupyter notebook `10. Videos Pipel
 * Warp the detected lane boundaries back onto the original image.
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
+## Notebook output:    
++ Binary images with relevant features `edge_images.p`.
+
 # 11. Profiling Video pipeline
 The code for this section is contained in the Jupyter notebook `11. Profiling Videos Pipeline.ipynb`. 
+
+
+## Notebook output:    
++ Binary images with relevant features `edge_images.p`.
+
 ****
 
 
