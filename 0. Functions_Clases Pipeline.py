@@ -352,9 +352,9 @@ def find_lane_x_points(binary_warped):
 def find_lane_pixels(binary_warped, leftx_base, rightx_base, showRectangles = True):
     # HYPERPARAMETERS
     # Choose the number of sliding windows
-    nwindows = 10
+    nwindows = 5
     # Set the width of the windows +/- margin
-    margin = 100
+    margin = 120
     # Set minimum number of pixels found to recenter window
     minpix = 40
     
