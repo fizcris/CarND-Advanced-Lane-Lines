@@ -25,20 +25,153 @@ Note that all the notebooks need the helper functions script `0. Functions_Clase
 
 The code for this section is contained in the Jupyter notebook `1. Camera Calibration Parameters.ipynb`.
 
- You need to set your chessboard size to 9x6 for the project
 
-I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image. Thus, objp is just a replicated array of coordinates, and objpoints will be appended with a copy of it every time I successfully detect all chessboard corners in a test image. imgpoints will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.
 
-I then used the output objpoints and imgpoints to compute the camera calibration and distortion coefficients using the cv2.calibrateCamera() function. I applied this distortion correction to the test image using the cv2.undistort() function and obtained this result:
+The notebook starts by preparing the "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. 
 
+An asumption is made that the board is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image. Thus, objp is just a replicated array of coordinates, and objpoints will be appended with a copy of it every time it successfully detects all chessboard corners in a test image. imgpoints will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.
+
+The objpoints and imgpoints were then used to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera() ` function. The chessboard size was set to 9x6 for the project. 
+
+
+Distortion correction was then applied to test images using the `cv2.undistort()` function with the following results:
+
+<table>
+    <tr>
+        <td>
+            <p style="text-align: center;">Original image</p>
+            <img src="report_resources/cal_images.gif" alt="cal_images" width="500" />
+        </td>
+        <td>
+            <p style="text-align: center;">Undistorted image</p>
+            <img src="report_resources/und_cal_images.gif" alt="und_cal_images" width="500" />
+        </td>
+    </tr>
+</table>
+
+
+
+## Notebook output:    
++ Calibration images with chessboard overdrawn
++ Undistorted calibtration images with chessboard overdrawn
++ Pickle file with camera calibration parameters `camera_calibration_params.p`.
+  
 # 2. Image undistortion
 The code for this section is contained in the Jupyter notebook `2. Image undistortion.ipynb`. 
+
+It is possible t test that the undistortion is working by checking the closer images where it can be detected a falt line insted of a concave line at the bottom side of the paper. See image below.
+
+<table>
+    <tr>
+        <td>
+            <p style="text-align: center;">Original image</p>
+            <img src="output_images/cal_images_12.jpg" alt="cal_images" width="500" />
+        </td>
+        <td>
+            <p style="text-align: center;">Undistorted image</p>
+            <img src="output_images/undistorted_cal_images_12.jpg" alt="und_cal_images" width="500" />
+        </td>
+    </tr>
+</table>
+
+As we can see in the images below, the differences are quite subtle, althought present in every image. The further the pixels are from the center, the more distortion is appreciated. 
+
+<table>
+    <tr>
+        <td>
+            <p style="text-align: center;">Original image</p>
+            <img src="report_resources/test_images.gif" alt="cal_images" width="500" />
+        </td>
+        <td>
+            <p style="text-align: center;">Undistorted image</p>
+            <img src="report_resources/und_images.gif" alt="und_cal_images" width="500" />
+        </td>
+    </tr>
+</table>
+
+## Notebook output:    
++ Undistorted test images
++ Pickle file with original test images `test_images.p`.
++ Pickle file with undistorted test images `undistorted_images.p`.
 
 # 3. Color enhancement and filtering
 The code for this section is contained in the Jupyter notebook `3. Color Enhancement.ipynb`. 
 
+Firstly images/frames are converted to HSL and then filtered for white an lleyow with the helper function `colorEnhancement(img)`
+
+The mask filters for white and lleyow are created by appliyig the following range filters:
+
+```
+# Yellow mask range
+color1_hls = (70, 120, 0)
+color2_hls = (100, 255, 255)
+
+#White mask range
+color1_hls_w = (0, 220, 0)
+color2_hls_w = (180, 255, 255)
+```
+
+Finally bitwise operations are performed in order to extract pixels presents in any of both masks.
+
+Then the image is converted form HSL to gray scale and a gaussian blur operation with a kernel of 5x5  is performed over the images. The results are presented below.
+
+<table>
+    <tr>
+        <td>
+            <p style="text-align: center;">HSL filtering</p>
+            <img src="report_resources/hsl_images.gif" alt="cal_images" width="500" />
+        </td>
+        <td>
+            <p style="text-align: center;">Gray scale + Gaussian smoothing</p>
+            <img src="report_resources/gauss_imgs.gif" alt="und_cal_images" width="500" />
+        </td>
+    </tr>
+</table>
+
+
+## Notebook output:    
++ Binary images ready for edge detection `gauss_images.p`.
++ HLS filtered images
++ Gauss smoothed grayscale images
+
+
+
 # 4. Edge detection
 The code for this section is contained in the Jupyter notebook `4. Edge detection.ipynb`. 
+
+The output of the gaussias smoothing passes then over a custom made sobel edge detector `sobel_thresh(img, sobel_kernel=3, x_thresh=[1,255], y_thresh=[1,255], mag_thresh=[1,255], dir_thresh=[-np.pi/2, np.pi/2])
+`
+
+To start width the sobel operators uses a fixed **sobel kernel of size 3** for our project, that mean that we will be using 3x3 matrices when applying the operator.
+
+The detector function applies four techniques for edge detenction. It calculates the gradient along the x axis (values increasing from left to tight, edges closes to the vertical), the y axis (values increasing from top to bottom, horizontal lines), then the sobelx and the sobely are combined into a third magnitude operator and a direction operator. Range values of minimum and maximum can be applied to each operator.
+
+The result is obtained in the following form after applying the indicated thresholds: `result = (sobelx and sobely) or (sobelmag and sobeldir)`. The limits of each thershold are stated in the function as default values.
+
+The results are aceptable, as we can see the lines ar thicker and better defined:
+
+<table>
+    <tr>
+        <td>
+            <p style="text-align: center;">W/O Threshold</p>
+            <img src="report_resources/gauss_imgs.gif" alt="cal_images" width="500" />
+        </td>
+        <td>
+            <p style="text-align: center;">Custom Sobel threshold</p>
+            <img src="report_resources/sobel_images.gif" alt="und_cal_images" width="500" />
+        </td>
+    </tr>
+</table>
+
+
+
+Note that the images were converted to 8bit integers in order to work with a standarized integer format.
+
+Notebook output:    
++ Binary images with relevant features `edge_images.p`.
+
+
+
 
 # 5. Region of interest masking
 The code for this section is contained in the Jupyter notebook `5. Region of interest.ipynb`. 
@@ -57,6 +190,17 @@ The code for this section is contained in the Jupyter notebook `9. Anotate Image
 
 # 10. Video pipeline
 The code for this section is contained in the Jupyter notebook `10. Videos Pipeline.ipynb`. 
+
+## Summary Video Pipeline
+
+* Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
+* Apply a distortion correction to raw images.
+* Use color transforms, gradients, etc., to create a thresholded binary image.
+* Apply a perspective transform to rectify binary image ("birds-eye view").
+* Detect lane pixels and fit to find the lane boundary.
+* Determine the curvature of the lane and vehicle position with respect to center.
+* Warp the detected lane boundaries back onto the original image.
+* Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
 # 11. Profiling Video pipeline
 The code for this section is contained in the Jupyter notebook `11. Profiling Videos Pipeline.ipynb`. 
@@ -102,13 +246,3 @@ To help the reviewer examine your work, please save examples of the output from 
 
 
 
-# Images Pipeline
-
-* Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
-* Apply a distortion correction to raw images.
-* Use color transforms, gradients, etc., to create a thresholded binary image.
-* Apply a perspective transform to rectify binary image ("birds-eye view").
-* Detect lane pixels and fit to find the lane boundary.
-* Determine the curvature of the lane and vehicle position with respect to center.
-* Warp the detected lane boundaries back onto the original image.
-* Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
