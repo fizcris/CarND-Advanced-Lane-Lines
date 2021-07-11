@@ -574,7 +574,7 @@ The result videos (`./output_videos/`) are quite pleasing, although improvements
         </td>
         <td>
             <p style="text-align: center;">Challenge video</p>
-            <img src="output_images/imagesPT_1.jpg" alt="challenge_video" width="500" />
+            <img src="report_resources/challenge_video.gif" alt="challenge_video" width="500" />
         </td>
     </tr>
 </table>
@@ -609,6 +609,8 @@ The result videos (`./output_videos/`) are quite pleasing, although improvements
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
 In an attempt to create a better output multiple checks were included, here below is an example when multiple missdetections (causing by the lane not having the right width or the polynomschanging too much or even when is not possible to find line pixels due to excesive image filtering). 
+
+It can be seen on the video when the pipeline switches between poly fit and the sliding window method, the pixel highlight was left on purpose to appreciate this phenomenom.
 
 ```
 def sanityCheck(self,limit):
