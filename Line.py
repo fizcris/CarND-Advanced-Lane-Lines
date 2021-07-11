@@ -78,21 +78,24 @@ class Line():
         self.allx = allx
         self.ally = ally
         
-    def measure_real_curvature(self):
+    def measure_real_curvature(self, amplif = 800):
         '''
         Calculates the curvature of polynomial functions in meters.
         '''
         # Define conversions in x and y from pixels space to meters
-        ym_per_pix = 30/720 # meters per pixel in y dimension
-        xm_per_pix = 3.7/700 # meters per pixel in x dimension
+        my = 30/(720 + amplif) # meters per pixel in y dimension
+        mx = 3.7/700 # meters per pixel in x dimension
 
         # Define y-value where we want radius of curvature
         # We'll choose the maximum y-value, corresponding to the bottom of the image
         y_eval = np.max(self.poly_ploty)
 
+        a =self.poly_best_fit[0] * (my**2/ mx)
+        b =self.poly_best_fit[1] *(my/mx)
+
         ##### Implement the calculation of R_curve (radius of curvature) #####
-        res = ((1 + (2*self.poly_best_fit[0]*y_eval*ym_per_pix + self.poly_best_fit[1])**2)**1.5) / np.absolute(2*self.poly_best_fit[0])
-        self.radius_of_curvature = res/(720/800)
+        res = ((1 + (2*a*y_eval + b)**2)**1.5) / np.absolute(2*a)
+        self.radius_of_curvature = res *  (my**2/ mx)
 
     def updateCoeffsLine(self,detected, current_fit, left_fitx, ploty, coefLimits=[1,1,10], movingAvg=5 ):
         """Updates the line ploynom equation coeficients
