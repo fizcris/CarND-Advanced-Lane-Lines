@@ -1,6 +1,6 @@
 ## Advanced Lane Finding
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
-![Lanes Image](report_resources/white_output.gif)
+![Lanes Image](report_resources/project_video.gif)
 
 In this project, your goal is to write a software pipeline to identify the lane boundaries in a video.
 
@@ -519,7 +519,7 @@ The code for this section is contained in the Jupyter notebook `9. Anotate Image
     </tr>
 </table>
 
-The formula below is used to calculate curvature. It is not very accurate in our case but it is understood that the implementation is corect. The `ym_per_pix = 30/720 # meters per pixel in y dimension` hyperparameter can be modified to change the pixel/meter ration but even big changes lead to small diferences in curvature. A good polynomial fit is the key to obtain good radius measuremnts.
+The formula below is used to calculate curvature. It is not very accurate in our case but it is understood that the implementation is corect. The `ym_per_pix = 30/720 # meters per pixel in y dimension` hyperparameter can be modified to change the pixel/meter ration, note that the formula is optimized tot take into considerations amplifications done during the perspective transform.
 
 <p style="text-align: center;">
 <img src="https://latex.codecogs.com/png.latex?\bg_white&space;R_{curve}&space;=&space;\frac{1&plus;(2Ay&plus;B)^{2})^{3/2})}{\left&space;|&space;2A&space;\right&space;|}" title="R_{curve} = \frac{1+(2Ay+B)^{2})^{3/2})}{\left | 2A \right |}" />
@@ -527,21 +527,24 @@ The formula below is used to calculate curvature. It is not very accurate in our
 
 
 ```
-def measure_real_curvature(self):
+def measure_real_curvature(self, amplif = 800):
     '''
     Calculates the curvature of polynomial functions in meters.
     '''
     # Define conversions in x and y from pixels space to meters
-    ym_per_pix = 30/720 # meters per pixel in y dimension
-    xm_per_pix = 3.7/700 # meters per pixel in x dimension
+    my = 30/(720 + amplif) # meters per pixel in y dimension
+    mx = 3.7/700 # meters per pixel in x dimension
 
     # Define y-value where we want radius of curvature
     # We'll choose the maximum y-value, corresponding to the bottom of the image
     y_eval = np.max(self.poly_ploty)
 
+    a =self.poly_best_fit[0] * (my**2/ mx)
+    b =self.poly_best_fit[1] *(my/mx)
+
     ##### Implement the calculation of R_curve (radius of curvature) #####
-    res = ((1 + (2*self.poly_best_fit[0]*y_eval*ym_per_pix + self.poly_best_fit[1])**2)**1.5) / np.absolute(2*self.poly_best_fit[0])
-        self.radius_of_curvature = res/(720/800)
+    res = ((1 + (2*a*y_eval + b)**2)**1.5) / np.absolute(2*a/my)
+    self.radius_of_curvature = res
 ```
 
 For the vahicle position the algorithm is quite straightforward, it only checks the difference between both x stating points of left and right planes and computes the diference from the center of the image and finally converts the pixel result to meters. An extra ratio is included to account for the image amplification when performing the perspective transformation.
@@ -567,7 +570,7 @@ The result videos (`./output_videos/`) are quite pleasing, although improvements
     <tr>
         <td>
             <p style="text-align: center;">Project video</p>
-            <img src="report_resources/white_output.gif" alt="project_video" width="500" />
+            <img src="report_resources/project_video.gif" alt="project_video" width="500" />
         </td>
         <td>
             <p style="text-align: center;">Challenge video</p>
@@ -605,7 +608,7 @@ The result videos (`./output_videos/`) are quite pleasing, although improvements
 * Compute and anotate vehicle position on lane
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
-
+In an attempt to create a better output multiple checks were included, here below is an example when multiple missdetections (causing by the lane not having the right width or the polynomschanging too much or even when is not possible to find line pixels due to excesive image filtering). 
 
 ```
 def sanityCheck(self,limit):
@@ -613,12 +616,12 @@ def sanityCheck(self,limit):
     Resets the line if it has multiple missdetections.
     '''
     if self.missdetections > limit:
-        self.recent_poly_fits = np.array([[0,0,0]]) 
-        self.recent_xfitted = np.array([0])
+        self.recent_poly_fits = self.recent_poly_fits[:-(limit-1),:]
+        self.recent_xfitted = self.recent_xfitted[-(limit-1)]
         self.missdetections = 0
         print("Reset by SanityCheck")
 ```
-
+The harder challenge was attempeted but a good fine tunning parameter was required so the output is ok but not great. A good ammount of effort is required to generalize this pipeline, for that is believed that other methods as deep learning could be more suitable for the task in hand.
 
 ## Notebook output:    
 + Annotated videos with detected line lanes overdrawn
