@@ -83,8 +83,8 @@ class Line():
         Calculates the curvature of polynomial functions in meters.
         '''
         # Define conversions in x and y from pixels space to meters
-        my = 30/(720 + amplif) # meters per pixel in y dimension
-        mx = 3.7/700 # meters per pixel in x dimension
+        my = 10/(720 + amplif) # meters per pixel in y dimension
+        mx = 3.7/600 # meters per pixel in x dimension
 
         # Define y-value where we want radius of curvature
         # We'll choose the maximum y-value, corresponding to the bottom of the image
