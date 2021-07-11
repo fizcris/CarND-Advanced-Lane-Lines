@@ -14,7 +14,9 @@ class Line():
         self.bestx = 0  
         
         #polynomial coefficients averaged over the last n iterations
-        self.poly_best_fit = np.array([])    
+        self.poly_best_fit = np.array([]) 
+        # Staged coefs to handle missdetections    
+        self.poly_best_fit_staged = np.array([]) 
         #polynomial coefficients for the most recent fit
         self.poly_current_fit = np.array([]) 
         #difference in fit coefficients between last and new fits
@@ -41,13 +43,8 @@ class Line():
         
         # center deviation
         self.center_deviation = np.array([]) 
-        
-    def isGoodPolyFit(self):
-        if self.poly_best_fit[0]: #Check if we are not in the first iteration
-            if  np.isclose(self.current_fit,self.poly_best_fit,[1e2,1e2,1e2]):
-                self.poly_best_fit = current_fit
     
-    def updateXbase(self, currentx, limit=50, movingAvg = 10 ):
+    def updateXbase(self, currentx, limit=100, movingAvg = 10 ):
         """Updates the bestx with the given currentx
         if the difference is below a threshold gets appeded
         othewise discarded
@@ -58,6 +55,7 @@ class Line():
             if (abs(currentx - self.bestx) < limit):
                 self.currentx = currentx
             else:
+                print("Discarded X point")
                 self.currentx = self.bestx
             
             # Apply moving average
@@ -93,8 +91,8 @@ class Line():
         y_eval = np.max(self.poly_ploty)
 
         ##### Implement the calculation of R_curve (radius of curvature) #####
-        self.radius_of_curvature = ((1 + (2*self.poly_best_fit[0]*y_eval*ym_per_pix + self.poly_best_fit[1])**2)**1.5) / np.absolute(2*self.poly_best_fit[0])
-
+        res = ((1 + (2*self.poly_best_fit[0]*y_eval*ym_per_pix + self.poly_best_fit[1])**2)**1.5) / np.absolute(2*self.poly_best_fit[0])
+        self.radius_of_curvature = res/(720/800)
 
     def updateCoeffsLine(self,detected, current_fit, left_fitx, ploty, coefLimits=[1,1,10], movingAvg=5 ):
         """Updates the line ploynom equation coeficients
@@ -104,6 +102,7 @@ class Line():
         # Not First iteration
         if  np.any((self.recent_poly_fits != 0)):
             if detected:
+                self.detected = True
                 if any(current_fit): 
                     self.poly_diffs = np.subtract(self.poly_best_fit,current_fit)
                     self.all_poly_diffs = np.vstack((self.all_poly_diffs,self.poly_diffs)) 
@@ -111,6 +110,7 @@ class Line():
                 if (abs(self.poly_diffs[0]) > coefLimits[0] or abs(self.poly_diffs[1]) > coefLimits[1] or abs(self.poly_diffs[2]) > coefLimits[2] ):
                     print("missdetection")
                     print(self.poly_diffs)
+                    self.all_poly_diffs = self.all_poly_diffs[:-1,:]
                     self.detected = False
                     self.missdetections += 1 
                 
@@ -128,7 +128,8 @@ class Line():
                     self.poly_plotx = np.polyval(self.poly_best_fit, self.poly_ploty)
                     
             else: #Not detected
-                pass
+                self.detected = False
+                self.missdetections += 1 
         
         # First iteration
         else:
@@ -140,6 +141,15 @@ class Line():
         
         self.measure_real_curvature()
     
+    def sanityCheck(self,limit):
+        '''
+        Resets the line if it has multiple missdetections.
+        '''
+        if self.missdetections > limit:
+            self.recent_poly_fits = self.recent_poly_fits[:-(limit-1),:]
+            self.recent_xfitted = self.recent_xfitted[-(limit-1)]
+            self.missdetections = 0
+            print("Reset by SanityCheck")
 
     
     def show(self):
