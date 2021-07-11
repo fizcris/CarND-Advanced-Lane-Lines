@@ -1,6 +1,6 @@
 ## Advanced Lane Finding
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
-![Lanes Image](./examples/example_output.jpg)
+![Lanes Image](report_resources/white_output.gif)
 
 In this project, your goal is to write a software pipeline to identify the lane boundaries in a video.
 
@@ -224,7 +224,7 @@ dotS_LL=[195,720] ; dotS_LR= [1120,720]
 # Destination
 hwidth = 250
 offset = -0
-height = -300
+height = -800
 
 dotD_UL=[offset+(1280//2)-hwidth,height]; dotD_UR= [offset+(1280//2)+hwidth,height]
 dotD_LL=[offset+(1280//2)-hwidth,720] ; dotD_LR= [offset+(1280//2)+hwidth,720]
@@ -261,6 +261,7 @@ The results are generally good and the straights project fairly straight onto th
 
  Be carefull to save the M and Minv matrices in order to `unwarp` the iamge later on.
 
+Note that the destination lines go above the upper limit of the projected image, that is a technique used to amplify the lines to make the polynomial fit easier.
 
 ## Notebook output:    
 + Warped images of ROI pictures
@@ -435,19 +436,94 @@ def updateCoeffsLine(self,detected, current_fit, left_fitx, ploty, coefLimits=[1
 
 ***
 ### `search_around_poly()`
-In order to speed up detection on videos another method was developed for line pixel detection.
+In order to speed up detection on videos another method was developed for line pixel detection. It basicallu creates a search area arround the last polynom fit. The function is controlled by a hyperparameter `margin` that determines the width to each side where to search for pixels. Implementaion below.
+
+```
+def search_around_poly(binary_warped, lineLane):
+    # Create an output image to draw on and visualize the result
+    if len(binary_warped.shape) < 3:
+        out_img = np.dstack((binary_warped, binary_warped, binary_warped))
+    else:
+        out_img = binary_warped
+    
+    # Width of the margin around the previous polynomial to search
+    margin = 100
+        
+    # Grab activated pixels
+    nonzero = binary_warped.nonzero()
+    nonzeroy = np.array(nonzero[0])
+    nonzerox = np.array(nonzero[1])
+    
+    
+    lane_inds = ((nonzerox > (lineLane.poly_best_fit[0]*(nonzeroy**2) + lineLane.poly_best_fit[1]*nonzeroy + 
+                lineLane.poly_best_fit[2] - margin)) & (nonzerox < (lineLane.poly_best_fit[0]*(nonzeroy**2) + 
+                lineLane.poly_best_fit[1]*nonzeroy + lineLane.poly_best_fit[2] + margin)))
+    
+    leftx = nonzerox[lane_inds]
+    lefty = nonzeroy[lane_inds] 
+    
+    # minimum number of pixels detected
+    if len(leftx) < 20 or len(leftx) < 20: 
+        lineDetected = False
+        print("NO pixels with search around poly")
+        coeffs_fit = [0,0,0]
+        line_fitx = []
+        return leftx,lefty, coeffs_fit, lineDetected, line_fitx, out_img
+    else:
+        lineDetected = True
+        
+    coeffs_fit = np.polyfit(lefty, leftx, 2)
+    line_fitx = np.polyval(coeffs_fit, lineLane.poly_ploty)  # evaluate the polynomial   
+    
+    
+        
+    out_img[lefty, leftx] = [255, 0, 0]
+    
+    return leftx,lefty, coeffs_fit, lineDetected, line_fitx, out_img
+```
+
+
 ## Notebook output:    
 + Lines isntances for right and left lines of the different processed images `pickle_data/lines_lane.p`.
 
 # 8. Image unwarping
 The code for this section is contained in the Jupyter notebook `8. Unwarp Images.ipynb`. 
 
-## Notebook output:    
-+ Binary images with relevant features `edge_images.p`.
+Once the lines have been found and the second order polynom fitted to them then the images get unwarped to its original shape. The funtion `cv2.warpPerspective(...)` is used again to unwarp the images with the projection matrices stored from the step number 6.
+
+
+
+<table>
+    <tr>
+        <td>
+            <p style="text-align: center;">Undistoreted images with lines overdrawn</p>
+            <img src="report_resources/lines.gif" alt="cal_images" width="500" />
+        </td>
+    </tr>
+</table>
+
+
+## Notebook output: 
++ Unwarped images with fitted lines   
++ Unwarped images with lines drawn `result_Images.p`.
 
 # 9. Curvature radius and vehicle position
 The code for this section is contained in the Jupyter notebook `9. Anotate Images.ipynb`. 
 
+<table>
+    <tr>
+        <td>
+            <p style="text-align: center;">Undistoreted images with lines overdrawn</p>
+            <img src="report_resources/annotated.gif" alt="cal_images" width="500" />
+        </td>
+    </tr>
+</table>
+
+The formula below is used to calculate curvature. It is not very accurate in our case but it is understood that the implementation is corect. The `ym_per_pix = 30/720 # meters per pixel in y dimension` hyperparameter can be modified to change the pixel/meter ration but even big changes lead to small diferences in curvature. A good polynomial fit is the key to obtain good radius measuremnts.
+
+<p style="text-align: center;">
+<img src="https://latex.codecogs.com/png.latex?\bg_white&space;R_{curve}&space;=&space;\frac{1&plus;(2Ay&plus;B)^{2})^{3/2})}{\left&space;|&space;2A&space;\right&space;|}" title="R_{curve} = \frac{1+(2Ay+B)^{2})^{3/2})}{\left | 2A \right |}" />
+</p>
 
 
 ```
@@ -464,29 +540,69 @@ def measure_real_curvature(self):
     y_eval = np.max(self.poly_ploty)
 
     ##### Implement the calculation of R_curve (radius of curvature) #####
-    self.radius_of_curvature = ((1 + (2*self.poly_best_fit[0]*y_eval*ym_per_pix + self.poly_best_fit[1])**2)**1.5) / np.absolute(2*self.poly_best_fit[0])
+    res = ((1 + (2*self.poly_best_fit[0]*y_eval*ym_per_pix + self.poly_best_fit[1])**2)**1.5) / np.absolute(2*self.poly_best_fit[0])
+        self.radius_of_curvature = res/(720/800)
+```
 
+For the vahicle position the algorithm is quite straightforward, it only checks the difference between both x stating points of left and right planes and computes the diference from the center of the image and finally converts the pixel result to meters. An extra ratio is included to account for the image amplification when performing the perspective transformation.
 
 
 ```
+frameCenter = np.mean([lineLeft.bestx,lineRight.bestx] , dtype=np.int32)
+imgCenter = img.shape[1]//2
+dev = frameCenter - imgCenter
+xm_per_pix = 3.7/450 # meters per pixel in x dimension
+result = dev*xm_per_pix
+```
 ## Notebook output:    
-+ Binary images with relevant features `edge_images.p`.
-
++ Annotated images
+***
 # 10. Video pipeline
 The code for this section is contained in the Jupyter notebook `10. Videos Pipeline.ipynb`. 
 
-## Notebook output:    
-+ Binary images with relevant features `edge_images.p`.
+The result videos (`./output_videos/`) are quite pleasing, although improvements can be made. 
+
+
+<table>
+    <tr>
+        <td>
+            <p style="text-align: center;">Project video</p>
+            <img src="report_resources/white_output.gif" alt="project_video" width="500" />
+        </td>
+        <td>
+            <p style="text-align: center;">Challenge video</p>
+            <img src="output_images/imagesPT_1.jpg" alt="challenge_video" width="500" />
+        </td>
+    </tr>
+</table>
+
+
 
 ## Summary Video Pipeline
 
-* Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
+* Resize images to 1920x720
 * Apply a distortion correction to raw images.
-* Use color transforms, gradients, etc., to create a thresholded binary image.
-* Apply a perspective transform to rectify binary image ("birds-eye view").
-* Detect lane pixels and fit to find the lane boundary.
-* Determine the curvature of the lane and vehicle position with respect to center.
+* Apply HSL yellow and white mask
+* Convert to grayscale
+* Smooth with gauss filtering
+* Apply sobel based edge detection
+* Apply Region of Interest mask
+* Warp the image to obtain a "birds-eye" perspective
+* Find lane x points using histogram peaks
+    * Update Line instances with X points (outliers deletion + moving average)
+* Check for missdetections
+    * Missdetections --> Apply sliding window search
+    * NO Missdetections --> Apply polynomial search
+    * Update Line isntances wwith polynoms (outliers deletion + moving average)
+* Sanity Check:
+    * Line dection from polynoms
+    * Separation between lanes
+    * Reset Line parameters on multiple missdetections
+* Create image with lines to overdraw    
+* Unwarp lines from "birds-eye" to original perspective
 * Warp the detected lane boundaries back onto the original image.
+* Compute and anotate Redious of curvature
+* Compute and anotate vehicle position on lane
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
 
@@ -505,7 +621,7 @@ def sanityCheck(self,limit):
 
 
 ## Notebook output:    
-+ Binary images with relevant features `edge_images.p`.
++ Annotated videos with detected line lanes overdrawn
 
 # 11. Profiling Video pipeline
 The code for this section is contained in the Jupyter notebook `11. Profiling Videos Pipeline.ipynb`. 
@@ -550,13 +666,17 @@ Radius of curvature 0.001993894577026367 seconds!
 Vehicle position 0.0010023117065429688 seconds!
 ```
 
-# Shortcomings asd improvements of the project
+# Shortcomings and improvements of the project
++ More work is needed on the sanity check algorithm (keep projection until good values found)
 + Search based on screen position that might be affected by camera position and tight bends
 + Possible to include Kalman filter for lane position and shape
 + Not suitable for real time 
     + Optimize code by paralellizing
     + Port to c++
-
++ Include logging capabilities
++ Apply smoothing between frames so lines can be detected easier as they fade with each other in between frames.
++ Diferenciate between bad frames (no pixels) and bad polynomial fits when doinf sanity checks.
++ Discard/acept polynomial fit by curvature of previous fits
 ****
 
 # End of the project
