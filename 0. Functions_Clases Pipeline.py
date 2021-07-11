@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 get_ipython().run_line_magic('matplotlib', 'inline')
 from pprint import pprint
 import pickle
+import os
 
 
 # ### [function] moving_average
@@ -110,12 +111,12 @@ def colorEnhancement(img):
     """
     hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
     ##find lleyows
-    color1_hls = (70, 120, 0)
-    color2_hls = (100, 255, 255)
+    color1_hls = (90, 120, 80)
+    color2_hls = (110, 255, 255)
     mask1 = cv2.inRange(hls, color1_hls,color2_hls)
     
     #find whites
-    color1_hls_w = (0, 220, 0)
+    color1_hls_w = (0, 199, 0)
     color2_hls_w = (180, 255, 255)
     mask2 = cv2.inRange(hls, color1_hls_w,color2_hls_w)
     
@@ -210,13 +211,16 @@ def sobel_thresh(img, sobel_kernel=3, x_thresh=[1,255], y_thresh=[1,255], mag_th
 # In[10]:
 
 
-def region_of_interest(img, vertices):
+def region_of_interest(img, vertices, overplot=False):
     """
     Applies an image mask.
     
     Only keeps the region of the image defined by the polygon
     formed from `vertices`. The rest of the image is set to black.
     `vertices` should be a numpy array of integer points.
+    
+    Be aware that if overplot=True image will have 3 color dimensions
+    instead of one!
     """
     #defining a blank mask to start with
     mask = np.zeros_like(img)   
@@ -233,6 +237,13 @@ def region_of_interest(img, vertices):
     
     #returning the image only where mask pixels are nonzero
     masked_image = cv2.bitwise_and(img, mask)
+    
+    if overplot:    
+        rgbROI = np.dstack((img*255, img*255, img*255))
+        maskContour = cv2.polylines(rgbROI,[vertices],True,(0,0,255),thickness=5)
+        masked_image = cv2.addWeighted(rgbROI, 1, maskContour, 0.8, 0)
+
+    
     return masked_image
 
 
@@ -282,38 +293,24 @@ def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap):
 # In[13]:
 
 
-def warp_image(img,conversion = 'warp' ,hwidth = 250 ,offset = -0, height = -450, overplotLines= True ):
+def warp_image(img,conversion = 'warp' ,hwidth = 250 ,offset = -0, height = -450, overplotLinesSrc= False, overplotLinesDst= False ):
     
     #Source
     # Place source points for uimage wrapping
     dotS_UL=[592,450]; dotS_UR= [692,450]
     dotS_LL=[195,720] ; dotS_LR= [1120,720]
 
-    src= np.float32([dotS_UL,dotS_LL,dotS_LR,dotS_UR])
+    src= np.array([dotS_UL,dotS_LL,dotS_LR,dotS_UR], dtype=np.float32)
 
-    # Create and plot source plane
-    xs = [x[0] for x in src]
-    ys = [x[1] for x in src]
 
-    if overplotLines:
-        plt.plot(xs,ys, 'ro-')
 
     #Destination
     dotD_UL=[offset+(1280//2)-hwidth,height]; dotD_UR= [offset+(1280//2)+hwidth,height]
     dotD_LL=[offset+(1280//2)-hwidth,720] ; dotD_LR= [offset+(1280//2)+hwidth,720]
 
-    dst= np.float32([dotD_UL,dotD_LL,dotD_LR,dotD_UR])
+    dst= np.array([dotD_UL,dotD_LL,dotD_LR,dotD_UR], dtype=np.float32)
+        
 
-    xd = [x[0] for x in dst]
-    yd = [x[1] for x in dst]
-
-    if overplotLines:
-        plt.plot(xd,yd, 'bo-')
-
-    # Create and plot source plane
-    xd = [x[0] for x in dst]
-    yd = [x[1] for x in dst]
-    
     #Computye perspective transform
     M = cv2.getPerspectiveTransform(dst,src)
     Minv = cv2.getPerspectiveTransform(src, dst)
@@ -321,6 +318,19 @@ def warp_image(img,conversion = 'warp' ,hwidth = 250 ,offset = -0, height = -450
         warped = cv2.warpPerspective(img, M, (1280,720), flags=cv2.INTER_LINEAR)
     else:
         warped = cv2.warpPerspective(img, Minv, (1280,720), flags=cv2.INTER_LINEAR)
+        
+        
+    # Create and plot source plane   
+    if overplotLinesSrc or overplotLinesDst:
+        if len(warped.shape) > 2:
+            pass
+        else:
+            warped = np.dstack((warped*255, warped*255, warped*255))  
+        # Plot lines
+        if overplotLinesSrc:
+            cv2.polylines(warped,np.array([src], dtype=np.int32),False,(255,0,0),thickness=4)    
+        if overplotLinesDst:
+            cv2.polylines(warped,np.array([dst], dtype=np.int32),False,(0,0,255),thickness=4)
         
     
     return warped, M, Minv
@@ -352,7 +362,7 @@ def find_lane_x_points(binary_warped):
 def find_lane_pixels(binary_warped, leftx_base, rightx_base, showRectangles = True):
     # HYPERPARAMETERS
     # Choose the number of sliding windows
-    nwindows = 5
+    nwindows = 8
     # Set the width of the windows +/- margin
     margin = 120
     # Set minimum number of pixels found to recenter window
@@ -494,7 +504,7 @@ def fit_polynomial(binary_warped,xPixels,yPixels, drawPoly = True):
     # Plots the left and right polynomials on the lane lines
     if drawPoly:
         verts = np.array(list(zip(line_fitx.astype(np.int32),ploty.astype(np.int32))))
-        line_img = cv2.polylines(binary_warped,[verts],False,(0,0,255),thickness=4)
+        line_img = cv2.polylines(binary_warped,[verts],False,(0,255,0),thickness=4)
     
         out_img = cv2.addWeighted(line_img, 1, binary_warped, 1, 0) 
     else:
@@ -510,6 +520,12 @@ def fit_polynomial(binary_warped,xPixels,yPixels, drawPoly = True):
 
 
 def search_around_poly(binary_warped, lineLane):
+    # Create an output image to draw on and visualize the result
+    if len(binary_warped.shape) < 3:
+        out_img = np.dstack((binary_warped, binary_warped, binary_warped))
+    else:
+        out_img = binary_warped
+    
     # Width of the margin around the previous polynomial to search
     margin = 100
         
@@ -526,16 +542,19 @@ def search_around_poly(binary_warped, lineLane):
     leftx = nonzerox[lane_inds]
     lefty = nonzeroy[lane_inds] 
     
-    lineDetected = True
+    if len(leftx) < 20 or len(leftx) < 20: 
+        lineDetected = False
+        print("NO pixels with search around poly")
+        coeffs_fit = [0,0,0]
+        line_fitx = []
+        return leftx,lefty, coeffs_fit, lineDetected, line_fitx, out_img
+    else:
+        lineDetected = True
+        
     coeffs_fit = np.polyfit(lefty, leftx, 2)
     line_fitx = np.polyval(coeffs_fit, lineLane.poly_ploty)  # evaluate the polynomial   
     
     
-    # Create an output image to draw on and visualize the result
-    if len(binary_warped.shape) < 3:
-        out_img = np.dstack((binary_warped, binary_warped, binary_warped))
-    else:
-        out_img = binary_warped
         
     out_img[lefty, leftx] = [255, 0, 0]
     
@@ -551,6 +570,7 @@ def similarCurvature(lineLeft,lineRight):
     """This function evaluates if both lanes 
     are concave/convex
     """
+    # TODO
     return True
 
 
@@ -584,7 +604,7 @@ def areParallel(lineLeft,lineRight, margin=100):
     detects if the separation is within 
     a specific range thorugghout the frame  
     """
-    
+    # TODO
     return True
 
 
@@ -628,7 +648,7 @@ def calculateDeviation(img, lineLeft,lineRight, ):
 # In[22]:
 
 
-def checkRadius(lineLeft, lineRight, limitStraight=10000,movingAvg = 30 ):
+def checkRadius(lineLeft, lineRight, limitStraight=10000,movingAvg = 1 ):
     
     if (lineLeft.radius_of_curvature and lineRight.radius_of_curvature ):
     
