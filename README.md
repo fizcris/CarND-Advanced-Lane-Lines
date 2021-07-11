@@ -143,9 +143,10 @@ The code for this section is contained in the Jupyter notebook `4. Edge detectio
 The output of the gaussias smoothing passes then over a custom made sobel edge detector `sobel_thresh(img, sobel_kernel=3, x_thresh=[1,255], y_thresh=[1,255], mag_thresh=[1,255], dir_thresh=[-np.pi/2, np.pi/2])
 `
 
-The sobel operators uses a fixed **sobel kernel of size 3** for our project, that means that we will be using 3x3 matrices when applying the operator.
+The Sobel operators uses a fixed **sobel kernel of size 3** for our project, which means that we will be using 3x3 matrices when applying the operator.
 
-The detector function applies four techniques for edge detection. It calculates the gradient along the x axis (values increasing from left to tight, edges closes to the vertical), the y axis (values increasing from top to bottom, horizontal lines), then the sobelx and the sobely are combined into a third magnitude operator and a direction operator. Range values of minimum and maximum can be applied to each operator.
+
+The detector function applies four techniques for edge detection. It calculates the gradient along the x axis (values increasing from left to tight, edges closes to the vertical), the y axis (values increasing from top to bottom, horizontal lines), then the Sobelx and the Sobely are combined into a third magnitude operator and a direction operator. Range values of minimum and maximum can be applied to each operator.
 
 The result is obtained in the following form after applying the indicated thresholds: `result = (sobelx and sobely) or (sobelmag and sobeldir)`. The limits of each threshold are stated in the function as default values.
 
@@ -212,7 +213,7 @@ Once the relevant features are isolated, a perspective transform is employed in 
 The magic takes place inside the `warp_image(img, hwidth = 250 ,offset = 0, height = -0, 
                                     overplotLinesDst=False, overplotLinesSrc= False )` function.
 
-Within the previous function the method `cv2.getPerspectiveTransform(src, dst)` gets called with the source and destination points from where the transform matrix M is obtained. This matrix is then feeded into the `cv2.warpPerspective()` function that `warps` the image. 
+Within the previous function the method `cv2.getPerspectiveTransform(src, dst)` gets called with the source and destination points from where the transform matrix M is obtained. This matrix is then feed into the `cv2.warpPerspective()` function that `warps` the image. 
 
 
 The source and destination points selected are presented below (Source points plotted in red and destination points plotted in blue):
@@ -245,7 +246,7 @@ dotD_LL=[offset+(1280//2)-hwidth,720] ; dotD_LR= [offset+(1280//2)+hwidth,720]
     </tr>
 </table>
 
-The results are generally good and the straights project fairly straight onto the birs eye perspective, wich will help later on curvature detection. 
+The results are generally good and the straights project fairly straight onto the birds eye perspective, which will help later on curvature detection. 
 
 <table>
     <tr>
@@ -260,9 +261,9 @@ The results are generally good and the straights project fairly straight onto th
     </tr>
 </table>
 
- Be carefull to save the M and Minv matrices in order to `unwarp` the iamge later on.
+ Be careful to save the M and Minv matrices in order to `unwarp` the image later on.
 
-Note that the destination lines go above the upper limit of the projected image, that is a technique used to amplify the lines to make the polynomial fit easier.
+Note that the destination lines go above the upper limit of the projected image, which is a technique used to amplify the lines to make the polynomial fit easier.
 
 ## Notebook output:    
 + Warped images of ROI pictures
@@ -272,11 +273,11 @@ Note that the destination lines go above the upper limit of the projected image,
 # 7. Finding lines
 The code for this section is contained in the Jupyter notebook `7. Finding Lines.ipynb`. 
 
-First of all a `Line` class is created (source code in `Line.py`). This line class contains different methods and properties that store everithing related with the detection of the lines. Throughout the documentation all of its methods and properties asociated will be explained.
+First of all, a `Line` class is created (source code in `Line.py`). This line class contains different methods and properties that store everything related to the detection of the lines. Throughout the documentation, all of its methods and properties associated will be explained.
 
 ***
 ### `find_lane_x_points(warped_image) `
-To begin with a histogram based fuction is used to fid the starting poitn of the lines. The function basically slits the image in half and uses the bottom half to do the histogram.
+To begin with a histogram-based function is used to find the starting point of the lines. The function basically slits the image in half and uses the bottom half to do the histogram.
 
 ```
 histogram = np.sum(binary_warped[binary_warped.shape[0]//2:,:], axis=0)
@@ -290,7 +291,7 @@ Then splits the image in two again but in this case in the horizontal axis, and 
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
 ```
 
-The Line method asociated with this function is `lineLeft.updateXbase(leftx_base)` that checks if the value is below a threshold in comparison with the previous x point, if it meets the requirements is then appended to the array `Line.recent_xfitted` from wich a moving average is employed to obtain the x value that gets recorded in the `Line.bestx` propety.
+The Line method associated with this function is `lineLeft.updateXbase(leftx_base)` that checks if the value is below a threshold in comparison with the previous x point, if it meets the requirements is then appended to the array `Line.recent_xfitted` from wich, a moving average is employed to obtain the x value that gets recorded in the `Line.bestx` property.
 
 
 ```
@@ -340,8 +341,8 @@ Note that this approach has numerous limitations, as it only takes into consider
 ### `find_lane_pixels()`
 
 
-This is one of the core functions of the line detection algorithm, it uses a slifing window search approach to find the lane pixels.
-It basically uses the filtered point obtained by `find_lane_x_points(warped_image)` and uses it a start middle poitn at the bottom of the image, then creates a box with the hyperarameters stated below, and climbs up the image detectign the pixels.
+This is one of the core functions of the line detection algorithm, it uses a sliding window search approach to find the lane pixels.
+It basically uses the filtered point obtained by `find_lane_x_points(warped_image)` and uses it a start middle point at the bottom of the image, then creates a box with the hyperparameters stated below and it climbs up the image detecting the pixels.
 
 ```
 # HYPERPARAMETERS
@@ -353,7 +354,7 @@ margin = 120
 minpix = 40
 ```
 
-A tweak was implemented in oreder to help the polynom fitting functions to pass through the intitial x point. Cosntrained optimization methods could be the "right" solution to the problem but they are expensive computationally so a simple solution is presented isntead. The solution proposed is quite simple, the bottom and first sliding gwindow gets filled with fake line pixels so it helps the polynom to pass through it. The results can be seen in the images below.
+A tweak was implemented in order to help the polynomial fitting functions to pass through the initial x point. Constrained optimization methods could be the "right" solution to the problem but they are expensive computationally so a simple solution is presented instead. The solution proposed is quite simple, the bottom and first sliding window gets filled with fake line pixels so it helps the polynomial to pass through it. The results can be seen in the images below.
 
 <table>
     <tr>
@@ -367,7 +368,7 @@ A tweak was implemented in oreder to help the polynom fitting functions to pass 
 
 ***
 ### `fit_polynomial()`
-Now comes the tricky part. This funciton attemps to fit a sensible second order polynomial to the detected line pixels. The main funtion is `np.polyfit(yPixels, xPixels, 2)` that computes the optimum second order ploynom that fits all points. As we stated below, the first square contains extra points to force the fitting and avoid missdetections. It is quite crude but it generally gives goods results overall.
+Now comes the tricky part. This function attempts to fit a sensible second-order polynomial to the detected line pixels. The main function is `np.polyfit(yPixels, xPixels, 2)` that computes the optimum second-order ploynomial that fits all points. As we stated below, the first square contains extra points to force the fitting and avoid miss detections. It is quite crude but it generally gives goods results overall.
 
 
 
@@ -383,12 +384,12 @@ Now comes the tricky part. This funciton attemps to fit a sensible second order 
 </table>
 
 
-The `Line` method asociated to the coefficients finding is `Line.updateCoeffsLine(...)`. It is a quite complex method. First detects if there have been previous detections, if not it inicialices the `Line.poly_best_fit` property that contains the current best voeficients in use and `Line.recent_poly_fits` that contains an array with the previously used coefficients. If the line is detected then it gets check in case the coeeficients differ more than the trheshodl `coefLimits=[1,1,10]` so it gets automatically rejected. If it is a good detectuion a moving average filter is then applied to each coefficient and stored as best fit wich will be use for the calculation of the polynom of this iteration then.
+The `Line` method associated to the coefficients finding is `Line.updateCoeffsLine(...)`. It is a quite complex method. First detects if there have been previous detections, if not it inicialices the `Line.poly_best_fit` property that contains the current best coefficients in use and `Line.recent_poly_fits` that contains an array with the previously used coefficients. If the line is detected then it gets checked in case the coefficients differ more than the threshold `coefLimits=[1,1,10]` so it gets automatically rejected. If it is a good detection a moving average filter is then applied to each coefficient and stored as best fit which will be used for the calculation of the polynomial of this iteration then.
 
-Its impelmentation is stated below.
+Its implementation is stated below.
 ```
 def updateCoeffsLine(self,detected, current_fit, left_fitx, ploty, coefLimits=[1,1,10], movingAvg=5 ):
-        """Updates the line ploynom equation coeficients
+        """Updates the line polynomial equation coefficients
         for the current removing outliers and applying moving average filters
         to coeffs
         """
@@ -437,7 +438,7 @@ def updateCoeffsLine(self,detected, current_fit, left_fitx, ploty, coefLimits=[1
 
 ***
 ### `search_around_poly()`
-In order to speed up detection on videos another method was developed for line pixel detection. It basicallu creates a search area arround the last polynom fit. The function is controlled by a hyperparameter `margin` that determines the width to each side where to search for pixels. Implementaion below.
+In order to speed up detection on videos another method was developed for line pixel detection. It basically creates a search area around the last polynomial fit. The function is controlled by a hyperparameter `margin` that determines the width to each side where to search for pixels. Implementation below.
 
 ```
 def search_around_poly(binary_warped, lineLane):
@@ -490,7 +491,7 @@ def search_around_poly(binary_warped, lineLane):
 # 8. Image unwarping
 The code for this section is contained in the Jupyter notebook `8. Unwarp Images.ipynb`. 
 
-Once the lines have been found and the second order polynom fitted to them then the images get unwarped to its original shape. The funtion `cv2.warpPerspective(...)` is used again to unwarp the images with the projection matrices stored from the step number 6.
+Once the lines have been found and the second-order polynomial is fitted to ,  then the images get unwarped to their original shape. The function `cv2.warpPerspective(...)` is used again to unwrap the images with the projection matrices stored from the step number 6.
 
 
 
@@ -520,7 +521,7 @@ The code for this section is contained in the Jupyter notebook `9. Anotate Image
     </tr>
 </table>
 
-The formula below is used to calculate curvature. It is not very accurate in our case but it is understood that the implementation is corect. The `ym_per_pix = 30/720 # meters per pixel in y dimension` hyperparameter can be modified to change the pixel/meter ration, note that the formula is optimized tot take into considerations amplifications done during the perspective transform.
+The formula below is used to calculate curvature. It is not very accurate in our case but it is understood that the implementation is correct. The `ym_per_pix = 30/720 # meters per pixel in y dimension` hyperparameter can be modified to change the pixel/meter ration, note that the formula is optimized to take into considerations amplifications done during the perspective transform.
 
 <p style="text-align: center;">
 <img src="https://latex.codecogs.com/png.latex?\bg_white&space;R_{curve}&space;=&space;\frac{1&plus;(2Ay&plus;B)^{2})^{3/2})}{\left&space;|&space;2A&space;\right&space;|}" title="R_{curve} = \frac{1+(2Ay+B)^{2})^{3/2})}{\left | 2A \right |}" />
@@ -548,7 +549,7 @@ def measure_real_curvature(self, amplif = 800):
     self.radius_of_curvature = res
 ```
 
-For the vahicle position the algorithm is quite straightforward, it only checks the difference between both x stating points of left and right planes and computes the diference from the center of the image and finally converts the pixel result to meters. An extra ratio is included to account for the image amplification when performing the perspective transformation.
+For the vehicle position the algorithm is quite straightforward, it only checks the difference between both x stating points of left and right planes and computes the diference from the center of the image and finally converts the pixel result to meters. An extra ratio is included to account for the image amplification when performing the perspective transformation.
 
 
 ```
@@ -589,29 +590,29 @@ The result videos (`./output_videos/`) are quite pleasing, although improvements
 * Apply HSL yellow and white mask
 * Convert to grayscale
 * Smooth with gauss filtering
-* Apply sobel based edge detection
+* Apply Sobel based edge detection
 * Apply Region of Interest mask
 * Warp the image to obtain a "birds-eye" perspective
 * Find lane x points using histogram peaks
     * Update Line instances with X points (outliers deletion + moving average)
-* Check for missdetections
+* Check for miss detections
     * Missdetections --> Apply sliding window search
     * NO Missdetections --> Apply polynomial search
-    * Update Line isntances wwith polynoms (outliers deletion + moving average)
+    * Update Line instances with polynomials (outliers deletion + moving average)
 * Sanity Check:
-    * Line dection from polynoms
+    * Line detection from polynomials
     * Separation between lanes
-    * Reset Line parameters on multiple missdetections
+    * Reset Line parameters on multiple miss detections
 * Create image with lines to overdraw    
 * Unwarp lines from "birds-eye" to original perspective
 * Warp the detected lane boundaries back onto the original image.
-* Compute and anotate Redious of curvature
-* Compute and anotate vehicle position on lane
+* Compute and annotate Radius of curvature
+* Compute and annotate vehicle position on lane
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
-In an attempt to create a better output multiple checks were included, here below is an example when multiple missdetections (causing by the lane not having the right width or the polynomschanging too much or even when is not possible to find line pixels due to excesive image filtering). 
+In an attempt to create a better output multiple checks were included, here below is an example when multiple miss detections (causing by the lane not having the right width or the polynomial is changing too much or even when is not possible to find line pixels due to excessive image filtering). 
 
-It can be seen on the video when the pipeline switches between poly fit and the sliding window method, the pixel highlight was left on purpose to appreciate this phenomenom.
+It can be seen on the video when the pipeline switches between poly fit and the sliding window method, the pixel highlight was left on purpose to appreciate this phenomenon.
 
 ```
 def sanityCheck(self,limit):
@@ -624,7 +625,7 @@ def sanityCheck(self,limit):
         self.missdetections = 0
         print("Reset by SanityCheck")
 ```
-The harder challenge was attempeted but a good fine tunning parameter was required so the output is ok but not great. A good ammount of effort is required to generalize this pipeline, for that is believed that other methods as deep learning could be more suitable for the task in hand.
+The harder challenge was attempted but a good fine tuning parameter was required so the output is ok but not great. A good amount of effort is required to generalize this pipeline, for that is believed that other methods as deep learning could be more suitable for the task at hand.
 
 ## Notebook output:    
 + Annotated videos with detected line lanes overdrawn
@@ -632,9 +633,9 @@ The harder challenge was attempeted but a good fine tunning parameter was requir
 # 11. Profiling Video pipeline
 The code for this section is contained in the Jupyter notebook `11. Profiling Videos Pipeline.ipynb`. 
 
-This pipeline is quite slow for porcessing images, a maximum average of 5it/s can be obtained with an average computer. So, this is no adequate for real-time processing, for taht we would need optimized code written in languages as c++ or take advantage of paralezization wich is out of the scope of this project.
+This pipeline is quite slow for processing images, a maximum average of 5it/s can be obtained with an average computer. So, this is no adequate for real-time processing, for that we would need optimized code written in languages as c++ or take advantage of parallelization which is out of the scope of this project.
 
-It is possible to check that the differecnes in execution employing the coeficeint aproximation method rather than the sliding window results in `0.027 s/frame` improvement. It seems not a lot but it reduces between 30-60 secodns the videos processed.  
+It is possible to check that the differences in execution employing the coefficient approximation method rather than the sliding window results in `0.027 s/frame` improvement. It seems not a lot but it reduces between 30-60 seconds the videos processed.  
 
 ```
 resizeImage took 0.0 seconds!
@@ -676,13 +677,13 @@ Vehicle position 0.0010023117065429688 seconds!
 + More work is needed on the sanity check algorithm (keep projection until good values found)
 + Search based on screen position that might be affected by camera position and tight bends
 + Possible to include Kalman filter for lane position and shape
-+ Not suitable for real time 
-    + Optimize code by paralellizing
++ Not suitable for real-time 
+    + Optimize code by parallelizing
     + Port to c++
 + Include logging capabilities
-+ Apply smoothing between frames so lines can be detected easier as they fade with each other in between frames.
-+ Diferenciate between bad frames (no pixels) and bad polynomial fits when doinf sanity checks.
-+ Discard/acept polynomial fit by curvature of previous fits
++ Apply smoothing between frames so lines can be detected easier as they fade with each other in-between frames.
++ Differentiate between bad frames (no pixels) and bad polynomial fits when doinf sanity checks.
++ Discard/accept polynomial fit by curvature of previous fits
 ****
 
 # End of the project
